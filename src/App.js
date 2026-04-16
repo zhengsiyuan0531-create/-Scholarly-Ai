@@ -130,6 +130,200 @@ Provide:
 4. Tips to further sharpen the argument
 Keep statements precise, arguable, and scope-appropriate for ${f.level} level.`,
   },
+  {
+    id: "paraphrase",
+    icon: "↺",
+    label: "论文仿写",
+    labelEn: "Paper Paraphrasing",
+    desc: "仿写改写，保留核心观点",
+    color: "#a78bfa",
+    maxTokens: 3000,
+    fields: [
+      { key: "original", label: "原文内容 / Original Text", placeholder: "粘贴需要仿写的论文段落或全文...", type: "textarea" },
+      { key: "style", label: "仿写风格", type: "select", options: ["学术化加强 (More Academic)", "通俗易懂 (More Accessible)", "换个角度 (Different Perspective)", "精简版 (Condensed)", "扩展版 (Expanded)"] },
+      { key: "field", label: "学科领域 / Field", placeholder: "e.g. 经济学、计算机科学、教育学（可选）", type: "text", optional: true },
+      { key: "level", label: "写作级别", type: "select", options: ["本科论文", "硕士论文", "博士论文", "期刊投稿"] },
+    ],
+    systemPrompt: (f) => `你是一位专业的学术写作专家，擅长论文仿写和改写。请对以下文本进行仿写改写，保留核心观点和论据，但使用完全不同的表达方式、句式结构和词汇选择。
+
+仿写风格：${f.style}
+学科领域：${f.field || "通用学术"}
+写作级别：${f.level}
+
+要求：
+1. 保持学术严谨性，逻辑结构清晰
+2. 显著改变句式结构和词汇，避免与原文高度相似
+3. 保留所有关键数据、引用和核心观点
+4. 用${f.level}水平的学术语言重新表达
+5. 适当调整段落顺序使文章更流畅自然
+6. 改变过渡词、连接语，体现个人写作风格
+
+原文：
+${f.original}
+
+请直接输出改写后的内容，不要添加任何说明。`,
+  },
+  {
+    id: "ai-reduce",
+    icon: "⬡",
+    label: "降低AI重合率",
+    labelEn: "Reduce AI Detection",
+    desc: "降低AI检测率，增加人工痕迹",
+    color: "#fb923c",
+    maxTokens: 3000,
+    fields: [
+      { key: "text", label: "AI生成文本 / AI-Generated Text", placeholder: "粘贴需要处理的AI生成内容...", type: "textarea" },
+      { key: "degree", label: "处理强度", type: "select", options: ["轻度处理 (保留80%原意)", "中度处理 (保留60%原意)", "深度处理 (完全重构)"] },
+      { key: "style", label: "目标风格", type: "select", options: ["学生口吻", "专业人士", "研究学者", "商务写作"] },
+      { key: "lang", label: "语言", type: "select", options: ["中文", "English", "中英混合"] },
+    ],
+    systemPrompt: (f) => `你是一位专业的文本人性化专家。将以下AI生成文本改写成更自然、更有人情味的文字，显著降低AI检测工具的检出率。
+
+处理强度：${f.degree}
+目标风格：${f.style}
+语言：${f.lang}
+
+改写策略（必须全部执行）：
+1. 【句式多样化】打破AI惯用的规则长句，混合使用长短句、设问句、转折句
+2. 【词汇口语化】适当引入口语词汇、成语、惯用语，避免千篇一律的"此外/然而/综上"
+3. 【视角转换】从第一人称角度加入个人观察、联想或类比，体现独立思考
+4. 【不完美感】保留轻微口语化表达，使用"这里需要注意的是"、"值得一提的是"等自然衔接
+5. 【情感植入】适当加入作者倾向性，让行文有温度，不像机器输出
+6. 【段落重构】重新切分段落，改变信息呈现节奏
+7. 【结构变化】将部分并列结构改为递进/转折结构，避免AI式列举
+
+原文：
+${f.text}
+
+请直接输出处理后的内容，不要解释你做了什么改变。`,
+  },
+  {
+    id: "report-proposal",
+    icon: "◈",
+    label: "开题报告",
+    labelEn: "Research Opening Report",
+    desc: "中文学术开题报告全文",
+    color: "#34d399",
+    maxTokens: 4000,
+    fields: [
+      { key: "title", label: "论文 / 报告题目", placeholder: "请输入完整题目", type: "text" },
+      { key: "type", label: "报告类型", type: "select", options: ["本科毕业论文开题报告", "硕士学位论文开题报告", "博士学位论文开题报告", "项目调研报告开题", "课题研究开题报告"] },
+      { key: "school", label: "学校 / 机构", placeholder: "e.g. 北京大学、清华大学（可选）", type: "text", optional: true },
+      { key: "major", label: "专业 / 领域", placeholder: "e.g. 工商管理、计算机科学、教育学", type: "text" },
+      { key: "background", label: "研究背景与意义（可选）", placeholder: "简述你的研究背景和选题意义...", type: "textarea", optional: true },
+    ],
+    systemPrompt: (f) => `你是一位资深的中国高校学术导师，专业撰写学术开题报告。请为以下论文撰写一份完整、规范的开题报告。
+
+论文题目：${f.title}
+报告类型：${f.type}
+学校/机构：${f.school || "高等院校"}
+专业领域：${f.major}
+${f.background ? `研究背景补充：${f.background}` : ""}
+
+请按照国内高校标准格式撰写完整开题报告，包含以下全部章节：
+
+一、选题背景与研究意义（600-800字）
+  1.1 研究背景
+  1.2 研究意义（理论意义与实践意义）
+
+二、国内外研究现状综述（800-1000字）
+  2.1 国外研究现状
+  2.2 国内研究现状
+  2.3 研究述评与现有不足
+
+三、研究内容与论文框架（400-600字）
+  3.1 主要研究内容
+  3.2 论文结构框架（分章节列出）
+
+四、研究思路与方法（300-500字）
+  4.1 研究思路
+  4.2 具体研究方法
+
+五、主要创新点（200-300字）
+
+六、研究进度安排（以表格形式列出时间节点）
+
+七、参考文献（列出15-20篇相关文献，格式规范）
+
+请确保内容专业、严谨，符合${f.type}的学术规范，总字数不少于3500字。`,
+  },
+  {
+    id: "speech-ppt",
+    icon: "▦",
+    label: "PPT + 演讲稿",
+    labelEn: "PPT + Speech Script",
+    desc: "PPT大纲 + 两千字演讲稿",
+    color: "#60a5fa",
+    maxTokens: 4000,
+    gensparkLink: true,
+    fields: [
+      { key: "topic", label: "演讲 / 汇报主题", placeholder: "e.g. 2024年度工作总结、人工智能在教育中的应用", type: "text" },
+      { key: "slides", label: "PPT 页数", type: "select", options: ["10页", "15页", "20页", "25页", "30页"] },
+      { key: "audience", label: "受众群体", type: "select", options: ["公司领导/董事会", "同事/团队", "客户/投资人", "学术委员会", "学生/教育场合", "政府/政策机构"] },
+      { key: "duration", label: "演讲时长", type: "select", options: ["10分钟", "15分钟", "20分钟", "30分钟", "45分钟"] },
+      { key: "context", label: "背景信息（可选）", placeholder: "部门、行业、具体要求等补充信息...", type: "text", optional: true },
+    ],
+    systemPrompt: (f) => `你是一位专业的演讲策划和PPT设计专家。请为以下主题生成完整的PPT大纲和演讲全文。
+
+主题：${f.topic}
+PPT页数：${f.slides}
+受众：${f.audience}
+演讲时长：${f.duration}
+背景：${f.context || "通用场合"}
+
+请严格按照以下格式输出：
+
+══════════════════════════════════════
+【PPT 大纲结构】（共${f.slides}）
+══════════════════════════════════════
+
+第1页 | 封面
+· 主标题：[主标题]
+· 副标题：[副标题]
+· 单位/演讲者：[...]
+
+第2页 | 目录
+· [列出所有板块]
+
+[继续列出每一页，格式为：页码 | 页面类型 · 要点1 · 要点2 · 建议图表]
+
+══════════════════════════════════════
+【演讲稿全文】（约2000字）
+══════════════════════════════════════
+
+▌开场白（约200字）
+[演讲稿开场内容]
+
+▌正文（约1400字，分段对应PPT各板块）
+[演讲稿正文内容]
+
+▌总结与结语（约200字）
+[演讲稿结语内容]
+
+▌常见Q&A预备（3-5个问题及简要回答）
+Q：...
+A：...
+
+请确保PPT大纲与演讲稿高度吻合，演讲语言自然流畅，适合${f.audience}受众，演讲时间控制在${f.duration}以内。`,
+  },
+  {
+    id: "work-report",
+    icon: "▣",
+    label: "工作报告",
+    labelEn: "Work Report",
+    desc: "一万至三万字完整工作报告",
+    color: "#f472b6",
+    longForm: true,
+    maxTokens: 4096,
+    fields: [
+      { key: "title", label: "报告标题", placeholder: "e.g. 2024年度工作总结报告、市场调研分析报告", type: "text" },
+      { key: "type", label: "报告类型", type: "select", options: ["年度工作总结报告", "半年度工作总结报告", "季度工作总结", "项目总结报告", "调研分析报告", "可行性研究报告", "市场分析报告", "党建工作报告", "政府工作报告"] },
+      { key: "wordCount", label: "目标字数", type: "select", options: ["一万字 (10,000)", "一万五千字 (15,000)", "两万字 (20,000)", "三万字 (30,000)"] },
+      { key: "dept", label: "单位 / 部门", placeholder: "e.g. 市场营销部、技术研发中心、XX市政府", type: "text" },
+      { key: "period", label: "报告时间段", placeholder: "e.g. 2024年1月—12月", type: "text" },
+      { key: "highlights", label: "重点内容 / 亮点（可选）", placeholder: "列出需要重点描述的工作内容、成就或数据...", type: "textarea", optional: true },
+    ],
+  },
 ];
 
 const TABS = [
@@ -138,13 +332,13 @@ const TABS = [
 ];
 
 // ─── API HELPERS ──────────────────────────────────────────────
-async function callClaude(systemPrompt, userMessage = "Please generate the content now.") {
+async function callClaude(systemPrompt, userMessage = "Please generate the content now.", maxTokens = 2000) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
+      max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     }),
@@ -211,6 +405,65 @@ async function searchArxiv(query, limit = 5) {
   } catch { return []; }
 }
 
+// ─── LONG-FORM REPORT GENERATOR ──────────────────────────────
+async function generateWorkReport(fields, onProgress, onPartial) {
+  const totalWords = parseInt(fields.wordCount.replace(/[^0-9]/g, "")) || 10000;
+  const base = `报告标题：${fields.title}\n报告类型：${fields.type}\n单位/部门：${fields.dept || "相关单位"}\n报告时间段：${fields.period || "本报告期"}${fields.highlights ? `\n重点内容：${fields.highlights}` : ""}`;
+  const parts = [
+    {
+      title: "一、总体概况",
+      words: Math.round(totalWords * 0.10),
+      desc: "全面概述本报告期工作总体情况，包括：工作背景与整体部署、主要目标完成情况综述、核心指标数据汇总。语言简洁有力，开门见山。",
+    },
+    {
+      title: "二、主要工作完成情况",
+      words: Math.round(totalWords * 0.45),
+      desc: "重点工作逐项详细展开，每项工作需包含：实施背景、具体措施、工作过程、完成成效（附数据）。分3-5个子标题展开，每个子标题内容详实具体。",
+    },
+    {
+      title: "三、工作亮点与创新举措",
+      words: Math.round(totalWords * 0.15),
+      desc: "聚焦本期特色做法、创新机制、典型案例，结合具体场景和数据，体现工作的独创性和示范意义。",
+    },
+    {
+      title: "四、存在的问题与不足",
+      words: Math.round(totalWords * 0.10),
+      desc: "客观分析本期工作中存在的主要困难、短板和不足，深入分析原因，语言实事求是，不回避矛盾。",
+    },
+    {
+      title: "五、下一步工作计划与措施",
+      words: Math.round(totalWords * 0.20),
+      desc: "明确下一报告期重点工作方向、具体举措、责任分工和时间节点。分项列出，具有可操作性和可考核性。",
+    },
+  ];
+
+  let fullContent = `${fields.title}\n${"─".repeat(50)}\n\n`;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    onProgress(`正在生成第 ${i + 1}/${parts.length} 部分：${part.title}...`);
+    const sectionPrompt = `你是一位资深公文写作专家，正在撰写《${fields.title}》的一个章节。
+
+${base}
+
+请撰写以下章节，字数严格达到约${part.words}字（中文字符数），内容详实、有数据支撑：
+
+${part.title}
+
+写作要求：${part.desc}
+
+格式要求：
+- 使用正式公文语言，语言庄重、表达准确
+- 大量使用具体数据、百分比、案例支撑论述
+- 分层分点，用"（一）（二）"或"1. 2."标注
+- 内容充实，不得泛泛而谈，字数必须达到约${part.words}字`;
+    const content = await callClaude(sectionPrompt, "请生成此章节的完整内容，字数必须达到要求，内容充实详尽。", 4096);
+    fullContent += content + "\n\n";
+    onPartial(fullContent);
+  }
+  onProgress("");
+  return fullContent;
+}
+
 // ─── SUBCOMPONENTS ────────────────────────────────────────────
 function ToolCard({ tool, onClick }) {
   return (
@@ -235,16 +488,29 @@ function WritingPanel({ tool, onBack }) {
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [progress, setProgress] = useState("");
   const outputRef = useRef(null);
 
   const handleGenerate = async () => {
-    const missing = tool.fields.filter(f => f.key !== "papers" && f.key !== "funding" && f.key !== "journal" && f.key !== "context" && !fields[f.key]);
+    const missing = tool.fields.filter(f => !f.optional && f.type !== "select" && !fields[f.key]);
     if (missing.length > 0) return;
     setLoading(true);
     setOutput("");
-    const prompt = tool.systemPrompt(fields);
-    const result = await callClaude(prompt);
-    setOutput(result);
+    setProgress("");
+
+    if (tool.longForm) {
+      // Multi-part generation for work reports
+      await generateWorkReport(
+        { ...fields, wordCount: fields.wordCount || tool.fields.find(f => f.key === "wordCount")?.options?.[0] || "一万字 (10,000)" },
+        setProgress,
+        (partial) => { setOutput(partial); setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 50); }
+      );
+    } else {
+      const prompt = tool.systemPrompt(fields);
+      const result = await callClaude(prompt, "Please generate the content now.", tool.maxTokens || 2000);
+      setOutput(result);
+    }
+
     setLoading(false);
     setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
@@ -254,6 +520,8 @@ function WritingPanel({ tool, onBack }) {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const wordCount = output ? output.replace(/\s/g, "").length : 0;
 
   return (
     <div>
@@ -270,12 +538,27 @@ function WritingPanel({ tool, onBack }) {
         </div>
       </div>
 
+      {/* Work report notice */}
+      {tool.longForm && (
+        <div style={{
+          background: `${tool.color}11`, border: `1px solid ${tool.color}33`,
+          borderRadius: 12, padding: "12px 16px", marginBottom: 20,
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <span style={{ color: tool.color, fontSize: 16 }}>▣</span>
+          <div>
+            <div style={{ color: tool.color, fontSize: 13, fontWeight: 600 }}>长文分段生成模式</div>
+            <div style={{ color: "#777", fontSize: 12 }}>报告将分5个章节依次生成，完整生成可能需要 2-5 分钟，请耐心等待</div>
+          </div>
+        </div>
+      )}
+
       {/* Form */}
       <div style={{ display: "flex", flexDirection: "column", gap: 18, marginBottom: 24 }}>
         {tool.fields.map(f => (
           <div key={f.key}>
-            <label style={{ display: "block", color: "#aaa", fontSize: 13, marginBottom: 7, fontFamily: "monospace" }}>
-              {f.label}
+            <label style={{ display: "block", color: f.optional ? "#666" : "#aaa", fontSize: 13, marginBottom: 7, fontFamily: "monospace" }}>
+              {f.label}{f.optional && <span style={{ color: "#444", fontSize: 11, marginLeft: 6 }}>(可选)</span>}
             </label>
             {f.type === "textarea" ? (
               <textarea
@@ -328,7 +611,7 @@ function WritingPanel({ tool, onBack }) {
         fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
         width: "100%", fontFamily: "monospace", letterSpacing: "0.05em", transition: "all 0.2s",
       }}>
-        {loading ? "✦ AI 生成中..." : `✦ 生成 ${tool.label}`}
+        {loading ? (progress || "✦ AI 生成中...") : `✦ 生成 ${tool.label}`}
       </button>
 
       {/* Output */}
@@ -339,22 +622,66 @@ function WritingPanel({ tool, onBack }) {
           borderRadius: 16, padding: "24px",
           animation: "fadeIn 0.4s ease",
         }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <span style={{ color: tool.color, fontSize: 12, fontFamily: "monospace", letterSpacing: "0.1em" }}>
-              ✦ AI OUTPUT
-            </span>
-            {output && (
-              <button onClick={handleCopy} style={{
-                background: copied ? "#22d3a022" : "rgba(255,255,255,0.05)",
-                color: copied ? "#22d3a0" : "#aaa",
-                border: `1px solid ${copied ? "#22d3a044" : "rgba(255,255,255,0.1)"}`,
-                borderRadius: 8, padding: "5px 14px", cursor: "pointer", fontSize: 12,
-              }}>
-                {copied ? "✓ 已复制" : "复制"}
-              </button>
-            )}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ color: tool.color, fontSize: 12, fontFamily: "monospace", letterSpacing: "0.1em" }}>
+                ✦ AI OUTPUT
+              </span>
+              {output && (
+                <span style={{ color: "#444", fontSize: 11, fontFamily: "monospace" }}>
+                  {wordCount.toLocaleString()} 字
+                </span>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {tool.gensparkLink && output && (
+                <button
+                  onClick={() => window.open("https://www.genspark.ai/", "_blank")}
+                  style={{
+                    background: "#60a5fa22", color: "#60a5fa",
+                    border: "1px solid #60a5fa44", borderRadius: 8,
+                    padding: "5px 14px", cursor: "pointer", fontSize: 12, fontWeight: 600,
+                  }}
+                >
+                  ▦ 在 Genspark 创建 PPT →
+                </button>
+              )}
+              {output && (
+                <button onClick={handleCopy} style={{
+                  background: copied ? "#22d3a022" : "rgba(255,255,255,0.05)",
+                  color: copied ? "#22d3a0" : "#aaa",
+                  border: `1px solid ${copied ? "#22d3a044" : "rgba(255,255,255,0.1)"}`,
+                  borderRadius: 8, padding: "5px 14px", cursor: "pointer", fontSize: 12,
+                }}>
+                  {copied ? "✓ 已复制" : "复制"}
+                </button>
+              )}
+            </div>
           </div>
-          {loading ? (
+
+          {/* Genspark guide */}
+          {tool.gensparkLink && output && (
+            <div style={{
+              background: "rgba(96,165,250,0.06)", border: "1px solid rgba(96,165,250,0.2)",
+              borderRadius: 10, padding: "12px 16px", marginBottom: 16,
+              fontSize: 12, color: "#93c5fd", lineHeight: 1.7,
+            }}>
+              <strong>使用 Genspark 生成 PPT：</strong>点击上方按钮进入 Genspark → 选择「AI Slides」→ 粘贴上方 PPT 大纲内容 → 一键生成精美 PPT
+            </div>
+          )}
+
+          {/* Long report progress */}
+          {tool.longForm && loading && progress && (
+            <div style={{
+              background: `${tool.color}0a`, borderRadius: 8, padding: "10px 14px", marginBottom: 14,
+              display: "flex", alignItems: "center", gap: 10,
+            }}>
+              <div style={{ width: 14, height: 14, border: `2px solid ${tool.color}44`, borderTopColor: tool.color, borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+              <span style={{ color: tool.color, fontSize: 12, fontFamily: "monospace" }}>{progress}</span>
+            </div>
+          )}
+
+          {!output && loading && !tool.longForm ? (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <div style={{ width: 20, height: 20, border: `2px solid ${tool.color}44`, borderTopColor: tool.color, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
               <span style={{ color: "#666", fontSize: 13 }}>Claude AI 正在生成，请稍候...</span>
@@ -364,7 +691,7 @@ function WritingPanel({ tool, onBack }) {
               color: "#d4d4d8", fontSize: 14, lineHeight: 1.8,
               whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0,
               fontFamily: "'Georgia', serif",
-            }}>{output}</pre>
+            }}>{output}{loading && tool.longForm ? "▌" : ""}</pre>
           )}
         </div>
       )}
@@ -608,7 +935,7 @@ export default function App() {
           </div>
           <h1 style={{ fontSize: "clamp(28px, 5vw, 50px)", fontWeight: 700, letterSpacing: "-0.02em", color: "#f5f5f5", lineHeight: 1.15, marginBottom: 12 }}>
             {tab === "write" ? (
-              <>AI 学术写作助手<br /><span style={{ fontSize: "0.55em", color: "#555", fontWeight: 400 }}>Outline · Proposal · Abstract · Literature Review</span></>
+              <>AI 智能写作平台<br /><span style={{ fontSize: "0.55em", color: "#555", fontWeight: 400 }}>论文仿写 · 降低AI率 · 开题报告 · PPT演讲稿 · 万字报告</span></>
             ) : (
               <>Search 200M+ Papers<br /><span style={{ fontSize: "0.55em", color: "#555", fontWeight: 400 }}>Harvard · MIT · Stanford · Oxford · QS100</span></>
             )}
@@ -640,9 +967,9 @@ export default function App() {
               <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                 {[
                   { name: "Claude Sonnet 4", desc: "AI 写作引擎", color: "#f97316" },
-                  { name: "Semantic Scholar", desc: "200M+ 论文库", color: "#6ee7b7" },
-                  { name: "OpenAlex", desc: "QS100 机构过滤", color: "#93c5fd" },
-                  { name: "arXiv", desc: "最新预印本", color: "#fca5a5" },
+                  { name: "论文仿写 & 降AI率", desc: "11种写作模式", color: "#a78bfa" },
+                  { name: "Genspark PPT", desc: "演讲稿联动", color: "#60a5fa" },
+                  { name: "万字报告", desc: "分段智能生成", color: "#f472b6" },
                 ].map(p => (
                   <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.color }} />
