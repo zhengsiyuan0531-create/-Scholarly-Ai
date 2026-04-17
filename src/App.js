@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────
 const WRITING_TOOLS = [
@@ -8,14 +8,14 @@ const WRITING_TOOLS = [
     label: "论文大纲",
     labelEn: "Outline",
     desc: "生成结构化章节大纲",
-    color: "#6ee7b7",
+    color: "#2563eb",
     fields: [
       { key: "topic", label: "论文题目 / Topic", placeholder: "e.g. The Impact of Climate Change on Marine Biodiversity", type: "text" },
       { key: "level", label: "学术级别", type: "select", options: ["Undergraduate", "Master's", "PhD", "Journal Article"] },
       { key: "pages", label: "目标字数 / Word Count", placeholder: "e.g. 5000", type: "text" },
       { key: "style", label: "引用格式", type: "select", options: ["APA 7th", "MLA 9th", "Chicago 17th", "Harvard", "Vancouver"] },
     ],
-    systemPrompt: (f) => `You are an expert academic writing consultant. Generate a detailed, professional paper outline. 
+    systemPrompt: (f) => `You are an expert academic writing consultant. Generate a detailed, professional paper outline.
 Topic: "${f.topic}". Level: ${f.level}. Target: ~${f.pages} words. Citation: ${f.style}.
 Produce a structured outline with: Title, Abstract note, 5-7 main sections each with 3-4 subsections, and a References section.
 Format clearly with Roman numerals for sections, letters for subsections. Include brief descriptions (1 sentence) of what each section covers.`,
@@ -26,18 +26,18 @@ Format clearly with Roman numerals for sections, letters for subsections. Includ
     label: "研究提案",
     labelEn: "Research Proposal",
     desc: "完整研究计划书",
-    color: "#93c5fd",
+    color: "#3b82f6",
     fields: [
       { key: "topic", label: "研究题目 / Research Title", placeholder: "e.g. Machine Learning in Drug Discovery", type: "text" },
       { key: "field", label: "研究领域 / Field", placeholder: "e.g. Computational Biology, Computer Science", type: "text" },
       { key: "university", label: "目标院校 / Target University", placeholder: "e.g. MIT, Oxford, Harvard", type: "text" },
-      { key: "funding", label: "申请经费 / Funding Body", placeholder: "e.g. NSF, NIHR, ERC (optional)", type: "text" },
+      { key: "funding", label: "申请经费 / Funding Body", placeholder: "e.g. NSF, NIHR, ERC (optional)", type: "text", optional: true },
     ],
     systemPrompt: (f) => `You are a senior academic writing expert helping craft a research proposal for ${f.university}.
 Research Title: "${f.topic}". Field: ${f.field}. Funding body: ${f.funding || "N/A"}.
 Write a complete, compelling research proposal with these sections:
 1. Title & Abstract (200 words)
-2. Introduction & Background (300 words) 
+2. Introduction & Background (300 words)
 3. Research Questions & Objectives
 4. Literature Gap & Significance
 5. Methodology (research design, data collection, analysis plan)
@@ -53,12 +53,12 @@ Use formal academic English. Be specific, not generic.`,
     label: "摘要生成",
     labelEn: "Abstract",
     desc: "专业学术摘要",
-    color: "#fca5a5",
+    color: "#ef4444",
     fields: [
       { key: "title", label: "论文标题 / Title", placeholder: "Your paper title", type: "text" },
       { key: "content", label: "论文主要内容 / Key Content", placeholder: "Describe your paper's main findings, methods, and conclusions...", type: "textarea" },
       { key: "words", label: "摘要字数 / Abstract Length", type: "select", options: ["150 words", "200 words", "250 words", "300 words"] },
-      { key: "journal", label: "目标期刊 / Target Journal", placeholder: "e.g. Nature, The Lancet, IEEE (optional)", type: "text" },
+      { key: "journal", label: "目标期刊 / Target Journal", placeholder: "e.g. Nature, The Lancet, IEEE (optional)", type: "text", optional: true },
     ],
     systemPrompt: (f) => `You are an expert academic editor. Write a polished, professional abstract.
 Paper title: "${f.title}". Target journal: ${f.journal || "general academic"}.
@@ -72,11 +72,11 @@ Use precise, journal-quality academic language. No first person. No vague claims
     label: "文献综述",
     labelEn: "Literature Review",
     desc: "系统性文献综述",
-    color: "#c4b5fd",
+    color: "#7c3aed",
     fields: [
       { key: "topic", label: "综述主题 / Review Topic", placeholder: "e.g. Deep Learning for Natural Language Processing", type: "text" },
       { key: "years", label: "文献年份范围", type: "select", options: ["Last 5 years (2020-2025)", "Last 10 years (2015-2025)", "Last 20 years (2005-2025)", "All time"] },
-      { key: "papers", label: "关键论文 / Key Papers (optional)", placeholder: "List any specific papers you want included...", type: "textarea" },
+      { key: "papers", label: "关键论文 / Key Papers (optional)", placeholder: "List any specific papers you want included...", type: "textarea", optional: true },
       { key: "length", label: "综述长度", type: "select", options: ["Short (~800 words)", "Medium (~1500 words)", "Long (~2500 words)"] },
     ],
     systemPrompt: (f) => `You are an expert academic researcher. Write a comprehensive literature review.
@@ -96,11 +96,11 @@ Cite real, plausible papers with author names and years in APA format. Be analyt
     label: "引言撰写",
     labelEn: "Introduction",
     desc: "学术论文引言",
-    color: "#fde68a",
+    color: "#f59e0b",
     fields: [
       { key: "topic", label: "论文题目 / Topic", placeholder: "Your paper title or topic", type: "text" },
       { key: "thesis", label: "核心论点 / Thesis Statement", placeholder: "What is your main argument or research question?", type: "textarea" },
-      { key: "context", label: "研究背景 / Context", placeholder: "Any specific context, field, or angle to emphasize?", type: "text" },
+      { key: "context", label: "研究背景 / Context", placeholder: "Any specific context, field, or angle to emphasize?", type: "text", optional: true },
       { key: "length", label: "引言长度", type: "select", options: ["Short (300 words)", "Medium (500 words)", "Long (800 words)"] },
     ],
     systemPrompt: (f) => `You are an expert academic writer. Write a compelling introduction for an academic paper.
@@ -115,7 +115,7 @@ Use formal academic English. End with a clear statement of paper structure. Cite
     label: "论点强化",
     labelEn: "Thesis Statement",
     desc: "优化核心论点",
-    color: "#6ee7f7",
+    color: "#0ea5e9",
     fields: [
       { key: "topic", label: "研究课题 / Research Topic", placeholder: "Your research topic or question", type: "text" },
       { key: "position", label: "你的立场 / Your Position", placeholder: "What argument are you trying to make?", type: "textarea" },
@@ -136,7 +136,7 @@ Keep statements precise, arguable, and scope-appropriate for ${f.level} level.`,
     label: "论文仿写",
     labelEn: "Paper Paraphrasing",
     desc: "仿写改写，保留核心观点",
-    color: "#a78bfa",
+    color: "#8b5cf6",
     maxTokens: 3000,
     fields: [
       { key: "original", label: "原文内容 / Original Text", placeholder: "粘贴需要仿写的论文段落或全文...", type: "textarea" },
@@ -169,7 +169,7 @@ ${f.original}
     label: "降低AI重合率",
     labelEn: "Reduce AI Detection",
     desc: "降低AI检测率，增加人工痕迹",
-    color: "#fb923c",
+    color: "#ea580c",
     maxTokens: 3000,
     fields: [
       { key: "text", label: "AI生成文本 / AI-Generated Text", placeholder: "粘贴需要处理的AI生成内容...", type: "textarea" },
@@ -203,7 +203,7 @@ ${f.text}
     label: "开题报告",
     labelEn: "Research Opening Report",
     desc: "中文学术开题报告全文",
-    color: "#34d399",
+    color: "#059669",
     maxTokens: 4000,
     fields: [
       { key: "title", label: "论文 / 报告题目", placeholder: "请输入完整题目", type: "text" },
@@ -253,7 +253,7 @@ ${f.background ? `研究背景补充：${f.background}` : ""}
     label: "PPT + 演讲稿",
     labelEn: "PPT + Speech Script",
     desc: "PPT大纲 + 两千字演讲稿",
-    color: "#60a5fa",
+    color: "#2563eb",
     maxTokens: 4000,
     gensparkLink: true,
     fields: [
@@ -312,7 +312,7 @@ A：...
     label: "工作报告",
     labelEn: "Work Report",
     desc: "一万至三万字完整工作报告",
-    color: "#f472b6",
+    color: "#db2777",
     longForm: true,
     maxTokens: 4096,
     fields: [
@@ -332,6 +332,48 @@ const TABS = [
 ];
 
 // ─── API HELPERS ──────────────────────────────────────────────
+async function streamClaude(systemPrompt, userMessage = "Please generate the content now.", maxTokens = 2000, onChunk) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: maxTokens,
+      stream: true,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let full = "";
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const raw = line.slice(6).trim();
+      if (raw === "[DONE]") break;
+      try {
+        const evt = JSON.parse(raw);
+        if (evt.type === "content_block_delta" && evt.delta?.text) {
+          full += evt.delta.text;
+          onChunk?.(full);
+        }
+      } catch { /* skip malformed */ }
+    }
+  }
+  return full || "Error generating content.";
+}
+
 async function callClaude(systemPrompt, userMessage = "Please generate the content now.", maxTokens = 2000) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -347,6 +389,7 @@ async function callClaude(systemPrompt, userMessage = "Please generate the conte
   return data.content?.[0]?.text || "Error generating content.";
 }
 
+// ─── SEARCH API HELPERS ─────────────────────────────────────
 async function searchSemanticScholar(query, limit = 8) {
   try {
     const fields = "title,authors,year,abstract,url,citationCount,openAccessPdf,externalIds,publicationVenue";
@@ -358,7 +401,7 @@ async function searchSemanticScholar(query, limit = 8) {
       year: p.year, abstract: p.abstract,
       url: p.url || (p.externalIds?.DOI ? `https://doi.org/${p.externalIds.DOI}` : null),
       pdfUrl: p.openAccessPdf?.url, citations: p.citationCount,
-      venue: p.publicationVenue?.name, source: "Semantic Scholar", sourceColor: "#6ee7b7",
+      venue: p.publicationVenue?.name, source: "Semantic Scholar", sourceColor: "#2563eb",
     }));
   } catch { return []; }
 }
@@ -381,7 +424,7 @@ async function searchOpenAlex(query, limit = 6) {
         url: p.doi ? `https://doi.org/${p.doi.replace("https://doi.org/", "")}` : p.primary_location?.landing_page_url,
         pdfUrl: p.open_access?.oa_url, citations: p.cited_by_count,
         venue: p.primary_location?.source?.display_name,
-        source: "OpenAlex", sourceColor: "#93c5fd",
+        source: "OpenAlex", sourceColor: "#3b82f6",
       };
     });
   } catch { return []; }
@@ -400,8 +443,88 @@ async function searchArxiv(query, limit = 5) {
       abstract: e.querySelector("summary")?.textContent?.slice(0, 400),
       url: e.querySelector("id")?.textContent,
       pdfUrl: e.querySelector("id")?.textContent?.replace("abs", "pdf"),
-      citations: null, venue: "arXiv", source: "arXiv", sourceColor: "#fca5a5",
+      citations: null, venue: "arXiv", source: "arXiv", sourceColor: "#ef4444",
     }));
+  } catch { return []; }
+}
+
+async function searchCrossRef(query, limit = 5) {
+  try {
+    const res = await fetch(`https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=${limit}&select=DOI,title,author,published-print,abstract,is-referenced-by-count,container-title&mailto=scholarly@example.com`);
+    const data = await res.json();
+    return (data.message?.items || []).map(p => ({
+      id: p.DOI,
+      title: (p.title || [])[0] || "Untitled",
+      authors: (p.author || []).slice(0, 3).map(a => `${a.given || ""} ${a.family || ""}`).join(", "),
+      year: p["published-print"]?.["date-parts"]?.[0]?.[0],
+      abstract: p.abstract ? p.abstract.replace(/<[^>]*>/g, "").slice(0, 400) : "",
+      url: `https://doi.org/${p.DOI}`,
+      pdfUrl: null, citations: p["is-referenced-by-count"],
+      venue: (p["container-title"] || [])[0],
+      source: "CrossRef", sourceColor: "#059669",
+    }));
+  } catch { return []; }
+}
+
+async function searchCORE(query, limit = 5) {
+  try {
+    const res = await fetch(`https://api.core.ac.uk/v3/search/works?q=${encodeURIComponent(query)}&limit=${limit}`, {
+      headers: { "Authorization": "Bearer free" },
+    });
+    const data = await res.json();
+    return (data.results || []).map(p => ({
+      id: p.id,
+      title: p.title || "Untitled",
+      authors: (p.authors || []).slice(0, 3).map(a => a.name || "").join(", "),
+      year: p.yearPublished,
+      abstract: (p.abstract || "").slice(0, 400),
+      url: p.doi ? `https://doi.org/${p.doi}` : p.downloadUrl,
+      pdfUrl: p.downloadUrl,
+      citations: null,
+      venue: p.publisher,
+      source: "CORE", sourceColor: "#7c3aed",
+    }));
+  } catch { return []; }
+}
+
+async function searchEuropePMC(query, limit = 5) {
+  try {
+    const res = await fetch(`https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(query)}&format=json&pageSize=${limit}&resultType=core`);
+    const data = await res.json();
+    return (data.resultList?.result || []).map(p => ({
+      id: p.pmid || p.id,
+      title: p.title || "Untitled",
+      authors: p.authorString || "",
+      year: p.pubYear,
+      abstract: (p.abstractText || "").slice(0, 400),
+      url: p.doi ? `https://doi.org/${p.doi}` : (p.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${p.pmid}` : null),
+      pdfUrl: p.isOpenAccess === "Y" ? `https://europepmc.org/articles/${p.pmcid || p.id}?pdf=render` : null,
+      citations: p.citedByCount,
+      venue: p.journalTitle,
+      source: "Europe PMC", sourceColor: "#0ea5e9",
+    }));
+  } catch { return []; }
+}
+
+async function searchDOAJ(query, limit = 5) {
+  try {
+    const res = await fetch(`https://doaj.org/api/search/articles/${encodeURIComponent(query)}?page=1&pageSize=${limit}`);
+    const data = await res.json();
+    return (data.results || []).map(p => {
+      const bib = p.bibjson || {};
+      return {
+        id: bib.identifier?.find(i => i.type === "doi")?.id || p.id,
+        title: bib.title || "Untitled",
+        authors: (bib.author || []).slice(0, 3).map(a => a.name || "").join(", "),
+        year: bib.year,
+        abstract: (bib.abstract || "").slice(0, 400),
+        url: bib.identifier?.find(i => i.type === "doi")?.id ? `https://doi.org/${bib.identifier.find(i => i.type === "doi").id}` : (bib.link || [])[0]?.url,
+        pdfUrl: (bib.link || []).find(l => l.type === "fulltext")?.url,
+        citations: null,
+        venue: bib.journal?.title,
+        source: "DOAJ", sourceColor: "#f59e0b",
+      };
+    });
   } catch { return []; }
 }
 
@@ -456,7 +579,9 @@ ${part.title}
 - 大量使用具体数据、百分比、案例支撑论述
 - 分层分点，用"（一）（二）"或"1. 2."标注
 - 内容充实，不得泛泛而谈，字数必须达到约${part.words}字`;
-    const content = await callClaude(sectionPrompt, "请生成此章节的完整内容，字数必须达到要求，内容充实详尽。", 4096);
+    const content = await streamClaude(sectionPrompt, "请生成此章节的完整内容，字数必须达到要求，内容充实详尽。", 4096, (partial) => {
+      onPartial(fullContent + partial);
+    });
     fullContent += content + "\n\n";
     onPartial(fullContent);
   }
@@ -464,21 +589,39 @@ ${part.title}
   return fullContent;
 }
 
+// ─── THEME ───────────────────────────────────────────────────
+const T = {
+  bg: "#f5f7fb",
+  card: "#ffffff",
+  cardBorder: "#e2e8f0",
+  cardHover: "#f0f4ff",
+  text: "#1e293b",
+  textSecondary: "#64748b",
+  textMuted: "#94a3b8",
+  accent: "#2563eb",
+  accentLight: "#dbeafe",
+  navBg: "rgba(255,255,255,0.92)",
+  navBorder: "#e2e8f0",
+  inputBg: "#f8fafc",
+  inputBorder: "#cbd5e1",
+  outputBg: "#f0f4ff",
+};
+
 // ─── SUBCOMPONENTS ────────────────────────────────────────────
 function ToolCard({ tool, onClick }) {
   return (
     <button onClick={onClick} style={{
-      background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+      background: T.card, border: `1px solid ${T.cardBorder}`,
       borderRadius: 16, padding: "22px 20px", cursor: "pointer", textAlign: "left",
-      transition: "all 0.2s", width: "100%",
+      transition: "all 0.2s", width: "100%", boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
     }}
-      onMouseEnter={e => { e.currentTarget.style.background = `${tool.color}0f`; e.currentTarget.style.borderColor = `${tool.color}44`; }}
-      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
+      onMouseEnter={e => { e.currentTarget.style.background = T.cardHover; e.currentTarget.style.borderColor = tool.color + "66"; e.currentTarget.style.boxShadow = `0 4px 12px ${tool.color}18`; }}
+      onMouseLeave={e => { e.currentTarget.style.background = T.card; e.currentTarget.style.borderColor = T.cardBorder; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
     >
       <div style={{ fontSize: 22, color: tool.color, marginBottom: 10 }}>{tool.icon}</div>
-      <div style={{ color: "#f0f0f0", fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{tool.label}</div>
-      <div style={{ color: "#666", fontSize: 12, fontFamily: "monospace", marginBottom: 6 }}>{tool.labelEn}</div>
-      <div style={{ color: "#888", fontSize: 13 }}>{tool.desc}</div>
+      <div style={{ color: T.text, fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{tool.label}</div>
+      <div style={{ color: T.textMuted, fontSize: 12, fontFamily: "monospace", marginBottom: 6 }}>{tool.labelEn}</div>
+      <div style={{ color: T.textSecondary, fontSize: 13 }}>{tool.desc}</div>
     </button>
   );
 }
@@ -491,7 +634,7 @@ function WritingPanel({ tool, onBack }) {
   const [progress, setProgress] = useState("");
   const outputRef = useRef(null);
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     const missing = tool.fields.filter(f => !f.optional && f.type !== "select" && !fields[f.key]);
     if (missing.length > 0) return;
     setLoading(true);
@@ -499,7 +642,6 @@ function WritingPanel({ tool, onBack }) {
     setProgress("");
 
     if (tool.longForm) {
-      // Multi-part generation for work reports
       await generateWorkReport(
         { ...fields, wordCount: fields.wordCount || tool.fields.find(f => f.key === "wordCount")?.options?.[0] || "一万字 (10,000)" },
         setProgress,
@@ -507,13 +649,14 @@ function WritingPanel({ tool, onBack }) {
       );
     } else {
       const prompt = tool.systemPrompt(fields);
-      const result = await callClaude(prompt, "Please generate the content now.", tool.maxTokens || 2000);
-      setOutput(result);
+      await streamClaude(prompt, "Please generate the content now.", tool.maxTokens || 2000, (partial) => {
+        setOutput(partial);
+      });
     }
 
     setLoading(false);
     setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-  };
+  }, [tool, fields]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(output);
@@ -521,34 +664,34 @@ function WritingPanel({ tool, onBack }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const wordCount = output ? output.replace(/\s/g, "").length : 0;
+  const charCount = output ? output.replace(/\s/g, "").length : 0;
 
   return (
     <div>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
         <button onClick={onBack} style={{
-          background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-          color: "#aaa", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontSize: 13,
+          background: T.card, border: `1px solid ${T.cardBorder}`,
+          color: T.textSecondary, borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontSize: 13,
         }}>← 返回</button>
         <span style={{ fontSize: 20, color: tool.color }}>{tool.icon}</span>
         <div>
-          <div style={{ color: "#f0f0f0", fontWeight: 600, fontSize: 17 }}>{tool.label}</div>
-          <div style={{ color: "#666", fontSize: 12, fontFamily: "monospace" }}>{tool.labelEn}</div>
+          <div style={{ color: T.text, fontWeight: 600, fontSize: 17 }}>{tool.label}</div>
+          <div style={{ color: T.textMuted, fontSize: 12, fontFamily: "monospace" }}>{tool.labelEn}</div>
         </div>
       </div>
 
       {/* Work report notice */}
       {tool.longForm && (
         <div style={{
-          background: `${tool.color}11`, border: `1px solid ${tool.color}33`,
+          background: "#fef2f2", border: `1px solid ${tool.color}33`,
           borderRadius: 12, padding: "12px 16px", marginBottom: 20,
           display: "flex", alignItems: "center", gap: 10,
         }}>
           <span style={{ color: tool.color, fontSize: 16 }}>▣</span>
           <div>
             <div style={{ color: tool.color, fontSize: 13, fontWeight: 600 }}>长文分段生成模式</div>
-            <div style={{ color: "#777", fontSize: 12 }}>报告将分5个章节依次生成，完整生成可能需要 2-5 分钟，请耐心等待</div>
+            <div style={{ color: T.textSecondary, fontSize: 12 }}>报告将分5个章节依次生成，完整生成可能需要 2-5 分钟，请耐心等待</div>
           </div>
         </div>
       )}
@@ -557,8 +700,8 @@ function WritingPanel({ tool, onBack }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 18, marginBottom: 24 }}>
         {tool.fields.map(f => (
           <div key={f.key}>
-            <label style={{ display: "block", color: f.optional ? "#666" : "#aaa", fontSize: 13, marginBottom: 7, fontFamily: "monospace" }}>
-              {f.label}{f.optional && <span style={{ color: "#444", fontSize: 11, marginLeft: 6 }}>(可选)</span>}
+            <label style={{ display: "block", color: f.optional ? T.textMuted : T.textSecondary, fontSize: 13, marginBottom: 7, fontFamily: "monospace" }}>
+              {f.label}{f.optional && <span style={{ color: T.textMuted, fontSize: 11, marginLeft: 6 }}>(可选)</span>}
             </label>
             {f.type === "textarea" ? (
               <textarea
@@ -567,9 +710,9 @@ function WritingPanel({ tool, onBack }) {
                 placeholder={f.placeholder}
                 rows={4}
                 style={{
-                  width: "100%", background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10,
-                  padding: "12px 14px", color: "#e8e8e8", fontSize: 14,
+                  width: "100%", background: T.inputBg,
+                  border: `1px solid ${T.inputBorder}`, borderRadius: 10,
+                  padding: "12px 14px", color: T.text, fontSize: 14,
                   resize: "vertical", fontFamily: "inherit", boxSizing: "border-box",
                 }}
               />
@@ -578,9 +721,9 @@ function WritingPanel({ tool, onBack }) {
                 value={fields[f.key] || f.options[0]}
                 onChange={e => setFields(p => ({ ...p, [f.key]: e.target.value }))}
                 style={{
-                  width: "100%", background: "#1a1a22",
-                  border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10,
-                  padding: "12px 14px", color: "#e8e8e8", fontSize: 14,
+                  width: "100%", background: T.card,
+                  border: `1px solid ${T.inputBorder}`, borderRadius: 10,
+                  padding: "12px 14px", color: T.text, fontSize: 14,
                   fontFamily: "inherit", cursor: "pointer",
                 }}
               >
@@ -593,9 +736,9 @@ function WritingPanel({ tool, onBack }) {
                 onChange={e => setFields(p => ({ ...p, [f.key]: e.target.value }))}
                 placeholder={f.placeholder}
                 style={{
-                  width: "100%", background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10,
-                  padding: "12px 14px", color: "#e8e8e8", fontSize: 14,
+                  width: "100%", background: T.inputBg,
+                  border: `1px solid ${T.inputBorder}`, borderRadius: 10,
+                  padding: "12px 14px", color: T.text, fontSize: 14,
                   fontFamily: "inherit", boxSizing: "border-box",
                 }}
               />
@@ -605,11 +748,12 @@ function WritingPanel({ tool, onBack }) {
       </div>
 
       <button onClick={handleGenerate} disabled={loading} style={{
-        background: loading ? "rgba(255,255,255,0.05)" : tool.color,
-        color: loading ? "#666" : "#0a0a0f",
+        background: loading ? T.cardBorder : tool.color,
+        color: loading ? T.textMuted : "#fff",
         border: "none", borderRadius: 12, padding: "14px 32px",
         fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
         width: "100%", fontFamily: "monospace", letterSpacing: "0.05em", transition: "all 0.2s",
+        boxShadow: loading ? "none" : `0 4px 14px ${tool.color}33`,
       }}>
         {loading ? (progress || "✦ AI 生成中...") : `✦ 生成 ${tool.label}`}
       </button>
@@ -617,29 +761,29 @@ function WritingPanel({ tool, onBack }) {
       {/* Output */}
       {(loading || output) && (
         <div ref={outputRef} style={{
-          marginTop: 28, background: "rgba(255,255,255,0.02)",
+          marginTop: 28, background: T.outputBg,
           border: `1px solid ${tool.color}33`,
           borderRadius: 16, padding: "24px",
           animation: "fadeIn 0.4s ease",
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ color: tool.color, fontSize: 12, fontFamily: "monospace", letterSpacing: "0.1em" }}>
+              <span style={{ color: tool.color, fontSize: 12, fontFamily: "monospace", letterSpacing: "0.1em", fontWeight: 700 }}>
                 ✦ AI OUTPUT
               </span>
               {output && (
-                <span style={{ color: "#444", fontSize: 11, fontFamily: "monospace" }}>
-                  {wordCount.toLocaleString()} 字
+                <span style={{ color: T.textMuted, fontSize: 11, fontFamily: "monospace" }}>
+                  {charCount.toLocaleString()} 字
                 </span>
               )}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              {tool.gensparkLink && output && (
+              {tool.gensparkLink && output && !loading && (
                 <button
                   onClick={() => window.open("https://www.genspark.ai/", "_blank")}
                   style={{
-                    background: "#60a5fa22", color: "#60a5fa",
-                    border: "1px solid #60a5fa44", borderRadius: 8,
+                    background: "#dbeafe", color: "#2563eb",
+                    border: "1px solid #93c5fd", borderRadius: 8,
                     padding: "5px 14px", cursor: "pointer", fontSize: 12, fontWeight: 600,
                   }}
                 >
@@ -648,9 +792,9 @@ function WritingPanel({ tool, onBack }) {
               )}
               {output && (
                 <button onClick={handleCopy} style={{
-                  background: copied ? "#22d3a022" : "rgba(255,255,255,0.05)",
-                  color: copied ? "#22d3a0" : "#aaa",
-                  border: `1px solid ${copied ? "#22d3a044" : "rgba(255,255,255,0.1)"}`,
+                  background: copied ? "#d1fae5" : T.card,
+                  color: copied ? "#059669" : T.textSecondary,
+                  border: `1px solid ${copied ? "#6ee7b7" : T.cardBorder}`,
                   borderRadius: 8, padding: "5px 14px", cursor: "pointer", fontSize: 12,
                 }}>
                   {copied ? "✓ 已复制" : "复制"}
@@ -660,11 +804,11 @@ function WritingPanel({ tool, onBack }) {
           </div>
 
           {/* Genspark guide */}
-          {tool.gensparkLink && output && (
+          {tool.gensparkLink && output && !loading && (
             <div style={{
-              background: "rgba(96,165,250,0.06)", border: "1px solid rgba(96,165,250,0.2)",
+              background: "#dbeafe", border: "1px solid #93c5fd",
               borderRadius: 10, padding: "12px 16px", marginBottom: 16,
-              fontSize: 12, color: "#93c5fd", lineHeight: 1.7,
+              fontSize: 12, color: "#1d4ed8", lineHeight: 1.7,
             }}>
               <strong>使用 Genspark 生成 PPT：</strong>点击上方按钮进入 Genspark → 选择「AI Slides」→ 粘贴上方 PPT 大纲内容 → 一键生成精美 PPT
             </div>
@@ -673,7 +817,7 @@ function WritingPanel({ tool, onBack }) {
           {/* Long report progress */}
           {tool.longForm && loading && progress && (
             <div style={{
-              background: `${tool.color}0a`, borderRadius: 8, padding: "10px 14px", marginBottom: 14,
+              background: "#fce7f3", borderRadius: 8, padding: "10px 14px", marginBottom: 14,
               display: "flex", alignItems: "center", gap: 10,
             }}>
               <div style={{ width: 14, height: 14, border: `2px solid ${tool.color}44`, borderTopColor: tool.color, borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
@@ -684,14 +828,14 @@ function WritingPanel({ tool, onBack }) {
           {!output && loading && !tool.longForm ? (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <div style={{ width: 20, height: 20, border: `2px solid ${tool.color}44`, borderTopColor: tool.color, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-              <span style={{ color: "#666", fontSize: 13 }}>Claude AI 正在生成，请稍候...</span>
+              <span style={{ color: T.textSecondary, fontSize: 13 }}>Claude AI 正在生成...</span>
             </div>
           ) : (
             <pre style={{
-              color: "#d4d4d8", fontSize: 14, lineHeight: 1.8,
+              color: T.text, fontSize: 14, lineHeight: 1.8,
               whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0,
               fontFamily: "'Georgia', serif",
-            }}>{output}{loading && tool.longForm ? "▌" : ""}</pre>
+            }}>{output}{loading ? "▌" : ""}</pre>
           )}
         </div>
       )}
@@ -703,33 +847,34 @@ function PaperCard({ paper, index }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div onClick={() => setExpanded(!expanded)} style={{
-      background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)",
+      background: T.card, border: `1px solid ${T.cardBorder}`,
       borderRadius: 14, padding: "18px 20px", marginBottom: 10, cursor: "pointer",
       transition: "all 0.15s", animation: `fadeIn 0.3s ease ${index * 0.04}s both`,
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
     }}
-      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
-      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}
+      onMouseEnter={e => { e.currentTarget.style.background = T.cardHover; e.currentTarget.style.boxShadow = "0 2px 8px rgba(37,99,235,0.08)"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = T.card; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
     >
       <div style={{ display: "flex", gap: 12, justifyContent: "space-between", alignItems: "flex-start" }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
             <span style={{
-              background: paper.sourceColor + "22", color: paper.sourceColor,
-              border: `1px solid ${paper.sourceColor}44`,
+              background: paper.sourceColor + "18", color: paper.sourceColor,
+              border: `1px solid ${paper.sourceColor}33`,
               borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 600,
             }}>{paper.source}</span>
-            {paper.year && <span style={{ color: "#666", fontSize: 12 }}>{paper.year}</span>}
-            {paper.citations != null && <span style={{ color: "#666", fontSize: 12 }}>◈ {paper.citations} cited</span>}
+            {paper.year && <span style={{ color: T.textMuted, fontSize: 12 }}>{paper.year}</span>}
+            {paper.citations != null && <span style={{ color: T.textMuted, fontSize: 12 }}>◈ {paper.citations} cited</span>}
           </div>
-          <div style={{ color: "#e8e8e8", fontSize: 14, fontWeight: 600, lineHeight: 1.4, marginBottom: 5 }}>
+          <div style={{ color: T.text, fontSize: 14, fontWeight: 600, lineHeight: 1.4, marginBottom: 5 }}>
             {paper.title}
           </div>
-          <div style={{ color: "#777", fontSize: 12 }}>
+          <div style={{ color: T.textSecondary, fontSize: 12 }}>
             {paper.authors}
-            {paper.venue && <span style={{ color: "#555" }}> · {paper.venue}</span>}
+            {paper.venue && <span style={{ color: T.textMuted }}> · {paper.venue}</span>}
           </div>
           {expanded && paper.abstract && (
-            <div style={{ color: "#aaa", fontSize: 13, lineHeight: 1.6, marginTop: 10 }}>
+            <div style={{ color: T.textSecondary, fontSize: 13, lineHeight: 1.6, marginTop: 10, background: T.inputBg, padding: "10px 12px", borderRadius: 8 }}>
               {paper.abstract}...
             </div>
           )}
@@ -737,13 +882,13 @@ function PaperCard({ paper, index }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
           {paper.url && (
             <a href={paper.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-              style={{ background: "rgba(255,255,255,0.07)", color: "#ccc", borderRadius: 8, padding: "5px 12px", fontSize: 12, textDecoration: "none" }}>
+              style={{ background: T.inputBg, color: T.textSecondary, border: `1px solid ${T.cardBorder}`, borderRadius: 8, padding: "5px 12px", fontSize: 12, textDecoration: "none" }}>
               View →
             </a>
           )}
           {paper.pdfUrl && (
             <a href={paper.pdfUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-              style={{ background: "#fca5a522", color: "#fca5a5", border: "1px solid #fca5a544", borderRadius: 8, padding: "5px 12px", fontSize: 12, textDecoration: "none" }}>
+              style={{ background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: 8, padding: "5px 12px", fontSize: 12, textDecoration: "none" }}>
               PDF ↓
             </a>
           )}
@@ -765,12 +910,16 @@ function SearchPanel() {
     setLoading(true);
     setResults([]);
     setAiNote(null);
-    const [s, o, a] = await Promise.all([
+    const [s, o, a, cr, co, ep, dj] = await Promise.all([
       searchSemanticScholar(sq, 7),
       searchOpenAlex(sq, 6),
       searchArxiv(sq, 5),
+      searchCrossRef(sq, 5),
+      searchCORE(sq, 4),
+      searchEuropePMC(sq, 5),
+      searchDOAJ(sq, 4),
     ]);
-    const all = [...s, ...o, ...a];
+    const all = [...s, ...o, ...a, ...cr, ...co, ...ep, ...dj];
     const seen = new Set();
     const deduped = all.filter(p => {
       const k = (p.title || "").toLowerCase().slice(0, 40);
@@ -793,19 +942,19 @@ function SearchPanel() {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 0, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, overflow: "hidden", marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 0, background: T.card, border: `1px solid ${T.inputBorder}`, borderRadius: 14, overflow: "hidden", marginBottom: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
         <input
           value={query} onChange={e => setQuery(e.target.value)}
           onKeyDown={e => e.key === "Enter" && doSearch()}
-          placeholder="Search 200M+ academic papers..."
+          placeholder="Search 200M+ academic papers across 7 databases..."
           style={{
             flex: 1, background: "transparent", border: "none",
-            padding: "14px 18px", color: "#e8e8e8", fontSize: 15, fontFamily: "inherit",
+            padding: "14px 18px", color: T.text, fontSize: 15, fontFamily: "inherit",
             outline: "none",
           }}
         />
         <button onClick={() => doSearch()} style={{
-          background: "#6ee7b7", color: "#0a0a0f", border: "none",
+          background: T.accent, color: "#fff", border: "none",
           padding: "0 24px", fontSize: 13, fontWeight: 700,
           cursor: "pointer", fontFamily: "monospace", letterSpacing: "0.05em",
         }}>SEARCH</button>
@@ -813,8 +962,8 @@ function SearchPanel() {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
         {suggestions.map(s => (
           <button key={s} onClick={() => { setQuery(s); doSearch(s); }} style={{
-            background: "transparent", border: "1px solid rgba(255,255,255,0.07)",
-            color: "#777", borderRadius: 20, padding: "4px 12px", fontSize: 12,
+            background: T.card, border: `1px solid ${T.cardBorder}`,
+            color: T.textSecondary, borderRadius: 20, padding: "4px 12px", fontSize: 12,
             cursor: "pointer", fontFamily: "monospace",
           }}>{s}</button>
         ))}
@@ -822,21 +971,21 @@ function SearchPanel() {
 
       {loading && (
         <div style={{ textAlign: "center", padding: "50px 0" }}>
-          <div style={{ width: 28, height: 28, border: "2px solid rgba(110,231,183,0.3)", borderTopColor: "#6ee7b7", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
-          <div style={{ color: "#555", fontSize: 13, fontFamily: "monospace" }}>Searching Semantic Scholar · OpenAlex · arXiv...</div>
+          <div style={{ width: 28, height: 28, border: `2px solid ${T.accent}44`, borderTopColor: T.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
+          <div style={{ color: T.textSecondary, fontSize: 13, fontFamily: "monospace" }}>Searching 7 databases: Semantic Scholar · OpenAlex · arXiv · CrossRef · CORE · Europe PMC · DOAJ...</div>
         </div>
       )}
 
       {aiNote && !loading && (
-        <div style={{ background: "rgba(110,231,183,0.05)", border: "1px solid rgba(110,231,183,0.2)", borderRadius: 14, padding: "18px 20px", marginBottom: 20, animation: "fadeIn 0.4s ease" }}>
-          <div style={{ color: "#6ee7b7", fontSize: 11, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: 10 }}>✦ AI SYNTHESIS</div>
-          <p style={{ color: "#c0c8d0", fontSize: 13, lineHeight: 1.7, margin: "0 0 12px 0" }}>{aiNote.synthesis}</p>
+        <div style={{ background: T.accentLight, border: `1px solid ${T.accent}33`, borderRadius: 14, padding: "18px 20px", marginBottom: 20, animation: "fadeIn 0.4s ease" }}>
+          <div style={{ color: T.accent, fontSize: 11, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: 10, fontWeight: 700 }}>✦ AI SYNTHESIS</div>
+          <p style={{ color: T.text, fontSize: 13, lineHeight: 1.7, margin: "0 0 12px 0" }}>{aiNote.synthesis}</p>
           {aiNote.followUp?.length > 0 && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {aiNote.followUp.map(f => (
                 <button key={f} onClick={() => { setQuery(f); doSearch(f); }} style={{
-                  background: "transparent", border: "1px solid rgba(110,231,183,0.3)",
-                  color: "#6ee7b7", borderRadius: 20, padding: "4px 12px",
+                  background: "transparent", border: `1px solid ${T.accent}44`,
+                  color: T.accent, borderRadius: 20, padding: "4px 12px",
                   fontSize: 12, cursor: "pointer", fontFamily: "inherit",
                 }}>+ {f}</button>
               ))}
@@ -846,17 +995,33 @@ function SearchPanel() {
       )}
 
       {results.length > 0 && !loading && (
-        <div style={{ color: "#555", fontSize: 12, fontFamily: "monospace", marginBottom: 14 }}>
-          {results.length} papers · click to expand abstracts
+        <div style={{ color: T.textMuted, fontSize: 12, fontFamily: "monospace", marginBottom: 14 }}>
+          {results.length} papers from 7 databases · click to expand abstracts
         </div>
       )}
       {results.map((p, i) => <PaperCard key={p.id || i} paper={p} index={i} />)}
 
       {!loading && results.length === 0 && (
-        <div style={{ textAlign: "center", padding: "60px 0", color: "#444" }}>
+        <div style={{ textAlign: "center", padding: "60px 0", color: T.textMuted }}>
           <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.3 }}>◈</div>
-          <div style={{ fontSize: 14 }}>Search across Semantic Scholar, OpenAlex & arXiv</div>
-          <div style={{ fontSize: 12, marginTop: 8, color: "#333" }}>200M+ papers · Harvard · MIT · Stanford · Oxford</div>
+          <div style={{ fontSize: 14, color: T.textSecondary }}>Search across 7 academic databases</div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 14 }}>
+            {[
+              { name: "Semantic Scholar", color: "#2563eb" },
+              { name: "OpenAlex", color: "#3b82f6" },
+              { name: "arXiv", color: "#ef4444" },
+              { name: "CrossRef", color: "#059669" },
+              { name: "CORE", color: "#7c3aed" },
+              { name: "Europe PMC", color: "#0ea5e9" },
+              { name: "DOAJ", color: "#f59e0b" },
+            ].map(db => (
+              <span key={db.name} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: T.textSecondary }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: db.color, display: "inline-block" }} />
+                {db.name}
+              </span>
+            ))}
+          </div>
+          <div style={{ fontSize: 12, marginTop: 12, color: T.textMuted }}>200M+ papers · Harvard · MIT · Stanford · Oxford</div>
         </div>
       )}
     </div>
@@ -871,8 +1036,8 @@ export default function App() {
   return (
     <div style={{
       minHeight: "100vh",
-      background: "#0a0a0f",
-      color: "#e8e8e8",
+      background: T.bg,
+      color: T.text,
       fontFamily: "'Georgia', 'Times New Roman', serif",
     }}>
       <style>{`
@@ -880,41 +1045,41 @@ export default function App() {
         @keyframes spin { to { transform: rotate(360deg); } }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: #111; }
-        ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         input, textarea, select { outline: none; }
-        input::placeholder, textarea::placeholder { color: #444; }
+        input::placeholder, textarea::placeholder { color: #94a3b8; }
       `}</style>
 
       {/* Top Nav */}
       <nav style={{
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        borderBottom: `1px solid ${T.navBorder}`,
         padding: "0 32px",
         display: "flex",
         alignItems: "center",
         gap: 32,
         height: 56,
-        background: "rgba(10,10,15,0.95)",
+        background: T.navBg,
         backdropFilter: "blur(10px)",
         position: "sticky",
         top: 0,
         zIndex: 100,
       }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span style={{ fontSize: 18, fontWeight: 700, color: "#f0f0f0", letterSpacing: "-0.02em" }}>
-            Scholarly<span style={{ color: "#6ee7b7" }}>AI</span>
+          <span style={{ fontSize: 18, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>
+            Scholara<span style={{ color: T.accent }}>AI</span>
           </span>
-          <span style={{ fontSize: 10, color: "#444", fontFamily: "monospace", letterSpacing: "0.1em" }}>BETA</span>
+          <span style={{ fontSize: 10, color: T.textMuted, fontFamily: "monospace", letterSpacing: "0.1em" }}>BETA</span>
         </div>
         <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => { setTab(t.id); setActiveTool(null); }} style={{
-              background: tab === t.id ? "rgba(255,255,255,0.07)" : "transparent",
-              border: tab === t.id ? "1px solid rgba(255,255,255,0.12)" : "1px solid transparent",
-              color: tab === t.id ? "#f0f0f0" : "#666",
+              background: tab === t.id ? T.accentLight : "transparent",
+              border: tab === t.id ? `1px solid ${T.accent}33` : "1px solid transparent",
+              color: tab === t.id ? T.accent : T.textSecondary,
               borderRadius: 8, padding: "6px 16px", cursor: "pointer",
               fontSize: 13, fontFamily: "monospace", letterSpacing: "0.03em",
-              transition: "all 0.15s",
+              transition: "all 0.15s", fontWeight: tab === t.id ? 600 : 400,
             }}>
               {t.icon} {t.label}
             </button>
@@ -927,17 +1092,17 @@ export default function App() {
         <div style={{
           textAlign: "center",
           padding: "48px 20px 36px",
-          background: "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(110,231,183,0.06) 0%, transparent 70%)",
-          borderBottom: "1px solid rgba(255,255,255,0.05)",
+          background: "linear-gradient(180deg, #dbeafe 0%, #f5f7fb 100%)",
+          borderBottom: `1px solid ${T.navBorder}`,
         }}>
-          <div style={{ fontSize: 11, letterSpacing: "0.3em", color: "#6ee7b7", fontFamily: "monospace", marginBottom: 14, textTransform: "uppercase" }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.3em", color: T.accent, fontFamily: "monospace", marginBottom: 14, textTransform: "uppercase", fontWeight: 700 }}>
             Academic AI Platform
           </div>
-          <h1 style={{ fontSize: "clamp(28px, 5vw, 50px)", fontWeight: 700, letterSpacing: "-0.02em", color: "#f5f5f5", lineHeight: 1.15, marginBottom: 12 }}>
+          <h1 style={{ fontSize: "clamp(28px, 5vw, 50px)", fontWeight: 700, letterSpacing: "-0.02em", color: T.text, lineHeight: 1.15, marginBottom: 12 }}>
             {tab === "write" ? (
-              <>AI 智能写作平台<br /><span style={{ fontSize: "0.55em", color: "#555", fontWeight: 400 }}>论文仿写 · 降低AI率 · 开题报告 · PPT演讲稿 · 万字报告</span></>
+              <>AI 智能写作平台<br /><span style={{ fontSize: "0.55em", color: T.textSecondary, fontWeight: 400 }}>论文仿写 · 降低AI率 · 开题报告 · PPT演讲稿 · 万字报告</span></>
             ) : (
-              <>Search 200M+ Papers<br /><span style={{ fontSize: "0.55em", color: "#555", fontWeight: 400 }}>Harvard · MIT · Stanford · Oxford · QS100</span></>
+              <>Search 200M+ Papers<br /><span style={{ fontSize: "0.55em", color: T.textSecondary, fontWeight: 400 }}>7 Databases · Harvard · MIT · Stanford · Oxford</span></>
             )}
           </h1>
         </div>
@@ -949,7 +1114,7 @@ export default function App() {
         {/* WRITE TAB */}
         {tab === "write" && !activeTool && (
           <div style={{ animation: "fadeIn 0.4s ease" }}>
-            <div style={{ color: "#555", fontSize: 12, fontFamily: "monospace", marginBottom: 20, letterSpacing: "0.05em" }}>
+            <div style={{ color: T.textMuted, fontSize: 12, fontFamily: "monospace", marginBottom: 20, letterSpacing: "0.05em" }}>
               选择写作任务 · SELECT A WRITING TASK
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
@@ -959,22 +1124,23 @@ export default function App() {
             </div>
             <div style={{
               marginTop: 36,
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.06)",
+              background: T.card,
+              border: `1px solid ${T.cardBorder}`,
               borderRadius: 16, padding: "20px 24px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
             }}>
-              <div style={{ color: "#555", fontSize: 11, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: 12 }}>✦ POWERED BY</div>
+              <div style={{ color: T.textMuted, fontSize: 11, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: 12, fontWeight: 700 }}>✦ POWERED BY</div>
               <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                 {[
                   { name: "Claude Sonnet 4", desc: "AI 写作引擎", color: "#f97316" },
-                  { name: "论文仿写 & 降AI率", desc: "11种写作模式", color: "#a78bfa" },
-                  { name: "Genspark PPT", desc: "演讲稿联动", color: "#60a5fa" },
-                  { name: "万字报告", desc: "分段智能生成", color: "#f472b6" },
+                  { name: "论文仿写 & 降AI率", desc: "11种写作模式", color: "#8b5cf6" },
+                  { name: "Genspark PPT", desc: "演讲稿联动", color: "#2563eb" },
+                  { name: "万字报告", desc: "分段智能生成", color: "#db2777" },
                 ].map(p => (
                   <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.color }} />
-                    <span style={{ color: "#777", fontSize: 12 }}>{p.name}</span>
-                    <span style={{ color: "#444", fontSize: 11 }}>· {p.desc}</span>
+                    <span style={{ color: T.textSecondary, fontSize: 12 }}>{p.name}</span>
+                    <span style={{ color: T.textMuted, fontSize: 11 }}>· {p.desc}</span>
                   </div>
                 ))}
               </div>
