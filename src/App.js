@@ -332,30 +332,36 @@ const TABS = [
 ];
 
 // ─── API HELPERS ──────────────────────────────────────────────
-const ANTHROPIC_KEY = process.env.REACT_APP_ANTHROPIC_API_KEY || "";
-const ANTHROPIC_HEADERS = {
-  "Content-Type": "application/json",
-  "x-api-key": ANTHROPIC_KEY,
-  "anthropic-version": "2023-06-01",
-  "anthropic-dangerous-direct-browser-calls": "true",
-};
+// DeepSeek uses OpenAI-compatible API — cheap, supports Chinese, no CORS issues
+const DS_KEY = process.env.REACT_APP_DEEPSEEK_API_KEY || "";
+const DS_BASE = "https://api.deepseek.com/chat/completions";
+const DS_MODEL = "deepseek-chat"; // deepseek-chat = DeepSeek V3
+
+function dsHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${DS_KEY}`,
+  };
+}
 
 async function streamClaude(systemPrompt, userMessage = "Please generate the content now.", maxTokens = 2000, onChunk) {
-  if (!ANTHROPIC_KEY) throw new Error("未配置 API Key（REACT_APP_ANTHROPIC_API_KEY），请联系管理员。");
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  if (!DS_KEY) throw new Error("未配置 DeepSeek API Key（REACT_APP_DEEPSEEK_API_KEY），请在 Vercel 环境变量中添加。");
+  const res = await fetch(DS_BASE, {
     method: "POST",
-    headers: ANTHROPIC_HEADERS,
+    headers: dsHeaders(),
     body: JSON.stringify({
-      model: "claude-sonnet-4-5",
+      model: DS_MODEL,
       max_tokens: maxTokens,
       stream: true,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
     }),
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`API 错误 ${res.status}：${err}`);
+    throw new Error(`DeepSeek API 错误 ${res.status}：${err}`);
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -373,30 +379,32 @@ async function streamClaude(systemPrompt, userMessage = "Please generate the con
       if (raw === "[DONE]") break;
       try {
         const evt = JSON.parse(raw);
-        if (evt.type === "content_block_delta" && evt.delta?.text) {
-          full += evt.delta.text;
-          onChunk?.(full);
-        }
+        const chunk = evt.choices?.[0]?.delta?.content;
+        if (chunk) { full += chunk; onChunk?.(full); }
       } catch { /* skip malformed */ }
     }
   }
-  return full || "Error generating content.";
+  return full || "生成内容为空，请重试。";
 }
 
 async function callClaude(systemPrompt, userMessage = "Please generate the content now.", maxTokens = 2000) {
-  if (!ANTHROPIC_KEY) return "";
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: ANTHROPIC_HEADERS,
-    body: JSON.stringify({
-      model: "claude-sonnet-4-5",
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-    }),
-  });
-  const data = await res.json();
-  return data.content?.[0]?.text || "";
+  if (!DS_KEY) return "";
+  try {
+    const res = await fetch(DS_BASE, {
+      method: "POST",
+      headers: dsHeaders(),
+      body: JSON.stringify({
+        model: DS_MODEL,
+        max_tokens: maxTokens,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+      }),
+    });
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "";
+  } catch { return ""; }
 }
 
 // ─── SEARCH API HELPERS ─────────────────────────────────────
