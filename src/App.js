@@ -683,7 +683,11 @@ function ToolCard({ tool, onClick }) {
 }
 
 function WritingPanel({ tool, onBack }) {
-  const [fields, setFields] = useState({});
+  const [fields, setFields] = useState(() => {
+    const defaults = {};
+    tool.fields.forEach(f => { if (f.type === "select") defaults[f.key] = f.options[0]; });
+    return defaults;
+  });
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
