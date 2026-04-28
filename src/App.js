@@ -10,15 +10,23 @@ const WRITING_TOOLS = [
     desc: "生成结构化章节大纲",
     color: "#2563eb",
     fields: [
-      { key: "topic", label: "论文题目 / Topic", placeholder: "e.g. The Impact of Climate Change on Marine Biodiversity", type: "text" },
-      { key: "level", label: "学术级别", type: "select", options: ["Undergraduate", "Master's", "PhD", "Journal Article"] },
+      { key: "topic", label: "论文题目 / Topic", placeholder: "e.g. AI对就业环境的影响 / The Impact of AI on Employment", type: "text" },
+      { key: "level", label: "学术级别", type: "select", options: ["本科 / Undergraduate", "硕士 / Master's", "博士 / PhD", "期刊论文 / Journal Article"] },
       { key: "pages", label: "目标字数 / Word Count", placeholder: "e.g. 5000", type: "text" },
-      { key: "style", label: "引用格式", type: "select", options: ["APA 7th", "MLA 9th", "Chicago 17th", "Harvard", "Vancouver"] },
+      { key: "style", label: "引用格式", type: "select", options: ["APA 7th", "MLA 9th", "Chicago 17th", "Harvard", "Vancouver", "GB/T 7714（国标）"] },
+      { key: "lang", label: "输出语言", type: "select", options: ["中文", "English", "中英双语"] },
     ],
-    systemPrompt: (f) => `You are an expert academic writing consultant. Generate a detailed, professional paper outline.
+    systemPrompt: (f) => {
+      const isCN = f.lang === "中文", isBi = f.lang === "中英双语";
+      if (isCN || isBi) return `你是一位专业的学术写作顾问。请生成一份详细、规范的论文大纲。
+论文题目："${f.topic}"。学术级别：${f.level}。目标字数：约${f.pages}字。引用格式：${f.style}。
+请生成包含以下内容的完整大纲：标题、摘要说明、5-7个主要章节（每章含3-4个子节）、参考文献。
+用中文数字标注章节（一、二、三…），用括号标注子节（（一）（二）…），每节附一句简要说明。${isBi ? "\n\n然后提供完整的英文版本。" : ""}`;
+      return `You are an expert academic writing consultant. Generate a detailed, professional paper outline.
 Topic: "${f.topic}". Level: ${f.level}. Target: ~${f.pages} words. Citation: ${f.style}.
 Produce a structured outline with: Title, Abstract note, 5-7 main sections each with 3-4 subsections, and a References section.
-Format clearly with Roman numerals for sections, letters for subsections. Include brief descriptions (1 sentence) of what each section covers.`,
+Format with Roman numerals for sections, letters for subsections. Include brief descriptions (1 sentence) per section.`;
+    },
   },
   {
     id: "proposal",
@@ -28,24 +36,35 @@ Format clearly with Roman numerals for sections, letters for subsections. Includ
     desc: "完整研究计划书",
     color: "#3b82f6",
     fields: [
-      { key: "topic", label: "研究题目 / Research Title", placeholder: "e.g. Machine Learning in Drug Discovery", type: "text" },
-      { key: "field", label: "研究领域 / Field", placeholder: "e.g. Computational Biology, Computer Science", type: "text" },
-      { key: "university", label: "目标院校 / Target University", placeholder: "e.g. MIT, Oxford, Harvard", type: "text" },
-      { key: "funding", label: "申请经费 / Funding Body", placeholder: "e.g. NSF, NIHR, ERC (optional)", type: "text", optional: true },
+      { key: "topic", label: "研究题目 / Research Title", placeholder: "e.g. 机器学习在药物发现中的应用", type: "text" },
+      { key: "field", label: "研究领域 / Field", placeholder: "e.g. 计算生物学、计算机科学", type: "text" },
+      { key: "university", label: "目标院校 / Target University", placeholder: "e.g. 清华大学、MIT、Oxford", type: "text" },
+      { key: "funding", label: "申请经费 / Funding Body", placeholder: "e.g. 国家自然科学基金、NSF（可选）", type: "text", optional: true },
+      { key: "lang", label: "输出语言", type: "select", options: ["中文", "English", "中英双语"] },
     ],
-    systemPrompt: (f) => `You are a senior academic writing expert helping craft a research proposal for ${f.university}.
+    systemPrompt: (f) => {
+      const isCN = f.lang === "中文", isBi = f.lang === "中英双语";
+      if (isCN || isBi) return `你是一位资深学术写作专家，正在为${f.university}撰写研究提案。
+研究题目："${f.topic}"。研究领域：${f.field}。经费来源：${f.funding || "未指定"}。
+请用中文撰写完整研究提案，包含：
+1. 题目与摘要（约200字）
+2. 研究背景与意义（约300字）
+3. 研究问题与目标
+4. 文献缺口与研究价值
+5. 研究方法（设计、数据收集、分析方案）
+6. 研究时间表（12-36个月甘特式安排）
+7. 预期成果与影响
+8. 经费预算说明
+9. 参考文献（5-8篇相关领域真实文献）
+内容具体，避免空泛。${isBi ? "\n\n然后提供完整的英文版本。" : ""}`;
+      return `You are a senior academic writing expert helping craft a research proposal for ${f.university}.
 Research Title: "${f.topic}". Field: ${f.field}. Funding body: ${f.funding || "N/A"}.
 Write a complete, compelling research proposal with these sections:
-1. Title & Abstract (200 words)
-2. Introduction & Background (300 words)
-3. Research Questions & Objectives
-4. Literature Gap & Significance
-5. Methodology (research design, data collection, analysis plan)
-6. Timeline (12-36 month Gantt-style breakdown)
-7. Expected Outcomes & Impact
-8. Budget Justification (brief)
-9. References (list 5-8 key real papers in the field)
-Use formal academic English. Be specific, not generic.`,
+1. Title & Abstract (200 words) 2. Introduction & Background (300 words) 3. Research Questions & Objectives
+4. Literature Gap & Significance 5. Methodology 6. Timeline (12-36 month Gantt-style)
+7. Expected Outcomes & Impact 8. Budget Justification 9. References (5-8 key papers)
+Use formal academic English. Be specific, not generic.`;
+    },
   },
   {
     id: "abstract",
@@ -55,16 +74,26 @@ Use formal academic English. Be specific, not generic.`,
     desc: "专业学术摘要",
     color: "#ef4444",
     fields: [
-      { key: "title", label: "论文标题 / Title", placeholder: "Your paper title", type: "text" },
-      { key: "content", label: "论文主要内容 / Key Content", placeholder: "Describe your paper's main findings, methods, and conclusions...", type: "textarea" },
-      { key: "words", label: "摘要字数 / Abstract Length", type: "select", options: ["150 words", "200 words", "250 words", "300 words"] },
-      { key: "journal", label: "目标期刊 / Target Journal", placeholder: "e.g. Nature, The Lancet, IEEE (optional)", type: "text", optional: true },
+      { key: "title", label: "论文标题 / Title", placeholder: "你的论文标题", type: "text" },
+      { key: "content", label: "论文主要内容 / Key Content", placeholder: "描述论文的主要发现、方法和结论...", type: "textarea" },
+      { key: "words", label: "摘要字数", type: "select", options: ["150字/words", "200字/words", "250字/words", "300字/words"] },
+      { key: "journal", label: "目标期刊 / Target Journal", placeholder: "e.g. Nature、中国科学、IEEE（可选）", type: "text", optional: true },
+      { key: "lang", label: "输出语言", type: "select", options: ["中文", "English", "中英双语"] },
     ],
-    systemPrompt: (f) => `You are an expert academic editor. Write a polished, professional abstract.
+    systemPrompt: (f) => {
+      const isCN = f.lang === "中文", isBi = f.lang === "中英双语";
+      const words = f.words || "200字/words";
+      if (isCN || isBi) return `你是一位专业学术编辑。请撰写一篇规范的中文学术摘要。
+论文标题："${f.title}"。目标期刊：${f.journal || "通用学术期刊"}。
+主要内容：${f.content}
+请撰写约${words}的摘要，涵盖：研究背景/目的、研究方法、主要结果、结论与意义。
+语言精准严谨，不用第一人称，避免模糊表述，紧扣数据和具体发现。${isBi ? "\n\n然后提供完整的英文摘要版本。" : ""}`;
+      return `You are an expert academic editor. Write a polished, professional abstract.
 Paper title: "${f.title}". Target journal: ${f.journal || "general academic"}.
-Key content provided: ${f.content}
-Write exactly ~${f.words} covering: Background/Purpose, Methods, Key Results, Conclusions, and Significance.
-Use precise, journal-quality academic language. No first person. No vague claims. Be specific.`,
+Key content: ${f.content}
+Write exactly ~${words} covering: Background/Purpose, Methods, Key Results, Conclusions, Significance.
+Use precise journal-quality language. No first person. No vague claims. Be specific.`;
+    },
   },
   {
     id: "literature",
@@ -74,21 +103,31 @@ Use precise, journal-quality academic language. No first person. No vague claims
     desc: "系统性文献综述",
     color: "#7c3aed",
     fields: [
-      { key: "topic", label: "综述主题 / Review Topic", placeholder: "e.g. Deep Learning for Natural Language Processing", type: "text" },
-      { key: "years", label: "文献年份范围", type: "select", options: ["Last 5 years (2020-2025)", "Last 10 years (2015-2025)", "Last 20 years (2005-2025)", "All time"] },
-      { key: "papers", label: "关键论文 / Key Papers (optional)", placeholder: "List any specific papers you want included...", type: "textarea", optional: true },
-      { key: "length", label: "综述长度", type: "select", options: ["Short (~800 words)", "Medium (~1500 words)", "Long (~2500 words)"] },
+      { key: "topic", label: "综述主题 / Review Topic", placeholder: "e.g. 深度学习在自然语言处理中的应用", type: "text" },
+      { key: "years", label: "文献年份范围", type: "select", options: ["近5年 (2020-2025)", "近10年 (2015-2025)", "近20年 (2005-2025)", "不限年份"] },
+      { key: "papers", label: "关键论文（可选）", placeholder: "列出需要包含的具体文献...", type: "textarea", optional: true },
+      { key: "length", label: "综述长度", type: "select", options: ["简短（约800字）", "中等（约1500字）", "详细（约2500字）"] },
+      { key: "lang", label: "输出语言", type: "select", options: ["中文", "English", "中英双语"] },
     ],
-    systemPrompt: (f) => `You are an expert academic researcher. Write a comprehensive literature review.
+    systemPrompt: (f) => {
+      const isCN = f.lang === "中文", isBi = f.lang === "中英双语";
+      if (isCN || isBi) return `你是一位专业学术研究员，擅长撰写系统性文献综述。
+综述主题："${f.topic}"。文献范围：${f.years}。综述长度：${f.length}。
+${f.papers ? `需包含的文献：${f.papers}` : ""}
+请用中文撰写完整文献综述，结构包括：
+1. 研究主题介绍与综述范围说明
+2. 按主题分类的文献综合分析（非时间顺序）
+3. 研究方法与主要发现的批判性分析
+4. 研究空白与矛盾之处的识别
+5. 综合评述与未来研究方向
+引用真实文献，格式规范，重在分析而非描述。${isBi ? "\n\n然后提供完整的英文版本。" : ""}`;
+      return `You are an expert academic researcher. Write a comprehensive literature review.
 Topic: "${f.topic}". Time scope: ${f.years}. Length: ${f.length}.
-${f.papers ? `Key papers to include: ${f.papers}` : ""}
-Structure the review with:
-1. Introduction to the topic and review scope
-2. Thematic synthesis organized by subtopics (not chronologically)
-3. Critical analysis of methodologies and findings
-4. Identification of research gaps and contradictions
-5. Synthesis and future directions
-Cite real, plausible papers with author names and years in APA format. Be analytical, not just descriptive.`,
+${f.papers ? `Key papers: ${f.papers}` : ""}
+Structure: 1) Introduction & scope 2) Thematic synthesis (not chronological) 3) Critical analysis
+4) Research gaps & contradictions 5) Synthesis & future directions.
+Cite real papers in APA format. Be analytical, not descriptive.`;
+    },
   },
   {
     id: "introduction",
@@ -98,16 +137,24 @@ Cite real, plausible papers with author names and years in APA format. Be analyt
     desc: "学术论文引言",
     color: "#f59e0b",
     fields: [
-      { key: "topic", label: "论文题目 / Topic", placeholder: "Your paper title or topic", type: "text" },
-      { key: "thesis", label: "核心论点 / Thesis Statement", placeholder: "What is your main argument or research question?", type: "textarea" },
-      { key: "context", label: "研究背景 / Context", placeholder: "Any specific context, field, or angle to emphasize?", type: "text", optional: true },
-      { key: "length", label: "引言长度", type: "select", options: ["Short (300 words)", "Medium (500 words)", "Long (800 words)"] },
+      { key: "topic", label: "论文题目 / Topic", placeholder: "你的论文题目或研究方向", type: "text" },
+      { key: "thesis", label: "核心论点 / Thesis Statement", placeholder: "你的主要论点或研究问题是什么？", type: "textarea" },
+      { key: "context", label: "研究背景（可选）", placeholder: "需要强调的特定背景、领域或角度...", type: "text", optional: true },
+      { key: "length", label: "引言长度", type: "select", options: ["简短（300字）", "中等（500字）", "详细（800字）"] },
+      { key: "lang", label: "输出语言", type: "select", options: ["中文", "English", "中英双语"] },
     ],
-    systemPrompt: (f) => `You are an expert academic writer. Write a compelling introduction for an academic paper.
-Topic: "${f.topic}". Thesis: ${f.thesis}. Context: ${f.context || "general academic"}.
-Length: ~${f.length}.
-Structure: Hook (surprising fact/statistic), Background context, Literature gap, Research questions/objectives, Paper roadmap.
-Use formal academic English. End with a clear statement of paper structure. Cite 3-5 plausible real references.`,
+    systemPrompt: (f) => {
+      const isCN = f.lang === "中文", isBi = f.lang === "中英双语";
+      if (isCN || isBi) return `你是一位专业的学术论文写作专家。请为以下论文撰写一段有吸引力的引言。
+论文题目："${f.topic}"。核心论点：${f.thesis}。背景：${f.context || "通用学术"}。
+引言长度：约${f.length}。
+结构要求：开篇引语（数据/现象），研究背景，文献空白，研究问题/目标，论文结构说明。
+用规范学术中文，结尾明确说明论文结构安排，引用3-5篇真实参考文献。${isBi ? "\n\n然后提供完整的英文版本。" : ""}`;
+      return `You are an expert academic writer. Write a compelling introduction for an academic paper.
+Topic: "${f.topic}". Thesis: ${f.thesis}. Context: ${f.context || "general academic"}. Length: ~${f.length}.
+Structure: Hook (fact/statistic), Background, Literature gap, Research questions, Paper roadmap.
+Use formal academic English. Cite 3-5 plausible real references.`;
+    },
   },
   {
     id: "thesis",
@@ -117,18 +164,26 @@ Use formal academic English. End with a clear statement of paper structure. Cite
     desc: "优化核心论点",
     color: "#0ea5e9",
     fields: [
-      { key: "topic", label: "研究课题 / Research Topic", placeholder: "Your research topic or question", type: "text" },
-      { key: "position", label: "你的立场 / Your Position", placeholder: "What argument are you trying to make?", type: "textarea" },
-      { key: "level", label: "学术级别", type: "select", options: ["Undergraduate Essay", "Master's Thesis", "PhD Dissertation", "Journal Article"] },
+      { key: "topic", label: "研究课题 / Research Topic", placeholder: "你的研究主题或研究问题", type: "text" },
+      { key: "position", label: "你的立场 / Your Position", placeholder: "你想表达的核心主张是什么？", type: "textarea" },
+      { key: "level", label: "学术级别", type: "select", options: ["本科论文", "硕士学位论文", "博士学位论文", "期刊论文"] },
+      { key: "lang", label: "输出语言", type: "select", options: ["中文", "English", "中英双语"] },
     ],
-    systemPrompt: (f) => `You are an expert academic writing coach. Help craft and strengthen a thesis statement.
+    systemPrompt: (f) => {
+      const isCN = f.lang === "中文", isBi = f.lang === "中英双语";
+      if (isCN || isBi) return `你是一位专业的学术写作指导专家，帮助学生打磨论点表述。
+研究课题："${f.topic}"。立场：${f.position}。学术级别：${f.level}。
+请提供：
+1. 三个不同版本的论点表述（从弱到强递进）
+2. 分析每个版本的优劣所在
+3. 推荐最佳版本并说明理由
+4. 进一步打磨的建议
+论点要精准、有可争辩性，与${f.level}的学术要求相符。${isBi ? "\n\n然后提供完整的英文版本。" : ""}`;
+      return `You are an expert academic writing coach. Help craft and strengthen a thesis statement.
 Topic: "${f.topic}". Position: ${f.position}. Level: ${f.level}.
-Provide:
-1. Three alternative thesis statement versions (weak → strong progression)
-2. Analysis of what makes each stronger
-3. The recommended best version with explanation
-4. Tips to further sharpen the argument
-Keep statements precise, arguable, and scope-appropriate for ${f.level} level.`,
+Provide: 1) Three thesis versions (weak→strong) 2) Analysis of each 3) Recommended best version 4) Tips to sharpen.
+Keep statements precise, arguable, scope-appropriate for ${f.level}.`;
+    },
   },
   {
     id: "paraphrase",
@@ -332,21 +387,36 @@ const TABS = [
 ];
 
 // ─── API HELPERS ──────────────────────────────────────────────
+// DeepSeek uses OpenAI-compatible API — cheap, supports Chinese, no CORS issues
+const DS_KEY = process.env.REACT_APP_DEEPSEEK_API_KEY || "";
+const DS_BASE = "https://api.deepseek.com/chat/completions";
+const DS_MODEL = "deepseek-chat"; // deepseek-chat = DeepSeek V3
+
+function dsHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${DS_KEY}`,
+  };
+}
+
 async function streamClaude(systemPrompt, userMessage = "Please generate the content now.", maxTokens = 2000, onChunk) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  if (!DS_KEY) throw new Error("未配置 DeepSeek API Key（REACT_APP_DEEPSEEK_API_KEY），请在 Vercel 环境变量中添加。");
+  const res = await fetch(DS_BASE, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: dsHeaders(),
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: DS_MODEL,
       max_tokens: maxTokens,
       stream: true,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
     }),
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(err);
+    throw new Error(`DeepSeek API 错误 ${res.status}：${err}`);
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -364,29 +434,32 @@ async function streamClaude(systemPrompt, userMessage = "Please generate the con
       if (raw === "[DONE]") break;
       try {
         const evt = JSON.parse(raw);
-        if (evt.type === "content_block_delta" && evt.delta?.text) {
-          full += evt.delta.text;
-          onChunk?.(full);
-        }
+        const chunk = evt.choices?.[0]?.delta?.content;
+        if (chunk) { full += chunk; onChunk?.(full); }
       } catch { /* skip malformed */ }
     }
   }
-  return full || "Error generating content.";
+  return full || "生成内容为空，请重试。";
 }
 
 async function callClaude(systemPrompt, userMessage = "Please generate the content now.", maxTokens = 2000) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-    }),
-  });
-  const data = await res.json();
-  return data.content?.[0]?.text || "Error generating content.";
+  if (!DS_KEY) return "";
+  try {
+    const res = await fetch(DS_BASE, {
+      method: "POST",
+      headers: dsHeaders(),
+      body: JSON.stringify({
+        model: DS_MODEL,
+        max_tokens: maxTokens,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+      }),
+    });
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "";
+  } catch { return ""; }
 }
 
 // ─── SEARCH API HELPERS ─────────────────────────────────────
