@@ -466,26 +466,8 @@ async function searchCrossRef(query, limit = 5) {
   } catch { return []; }
 }
 
-async function searchCORE(query, limit = 5) {
-  try {
-    const res = await fetch(`https://api.core.ac.uk/v3/search/works?q=${encodeURIComponent(query)}&limit=${limit}`, {
-      headers: { "Authorization": "Bearer free" },
-    });
-    const data = await res.json();
-    return (data.results || []).map(p => ({
-      id: p.id,
-      title: p.title || "Untitled",
-      authors: (p.authors || []).slice(0, 3).map(a => a.name || "").join(", "),
-      year: p.yearPublished,
-      abstract: (p.abstract || "").slice(0, 400),
-      url: p.doi ? `https://doi.org/${p.doi}` : p.downloadUrl,
-      pdfUrl: p.downloadUrl,
-      citations: null,
-      venue: p.publisher,
-      source: "CORE", sourceColor: "#7c3aed",
-    }));
-  } catch { return []; }
-}
+// CORE API removed — requires a real API key and its Authorization header
+// triggers CORS preflight failures in browser environments.
 
 async function searchEuropePMC(query, limit = 5) {
   try {
@@ -903,6 +885,7 @@ function SearchPanel() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [aiNote, setAiNote] = useState(null);
+  const [searchError, setSearchError] = useState("");
 
   const doSearch = async (q) => {
     const sq = q || query;
@@ -910,31 +893,38 @@ function SearchPanel() {
     setLoading(true);
     setResults([]);
     setAiNote(null);
-    const [s, o, a, cr, co, ep, dj] = await Promise.all([
-      searchSemanticScholar(sq, 7),
-      searchOpenAlex(sq, 6),
-      searchArxiv(sq, 5),
-      searchCrossRef(sq, 5),
-      searchCORE(sq, 4),
-      searchEuropePMC(sq, 5),
-      searchDOAJ(sq, 4),
-    ]);
-    const all = [...s, ...o, ...a, ...cr, ...co, ...ep, ...dj];
-    const seen = new Set();
-    const deduped = all.filter(p => {
-      const k = (p.title || "").toLowerCase().slice(0, 40);
-      if (seen.has(k)) return false;
-      seen.add(k); return true;
-    });
-    setResults(deduped);
-    setLoading(false);
-    if (deduped.length > 0) {
-      const summaries = deduped.slice(0, 5).map((p, i) => `[${i+1}] "${p.title}" (${p.year}) — ${p.abstract?.slice(0, 150) || ""}`).join("\n");
-      const note = await callClaude(
-        `You are an academic assistant. Given papers about "${sq}", respond ONLY with JSON: {"synthesis":"2 sentence summary","followUp":["query1","query2","query3"]}. No markdown.`,
-        summaries
-      );
-      try { setAiNote(JSON.parse(note.replace(/```json|```/g, "").trim())); } catch { setAiNote(null); }
+    setSearchError("");
+    try {
+      const [s, o, a, cr, ep, dj] = await Promise.all([
+        searchSemanticScholar(sq, 7),
+        searchOpenAlex(sq, 6),
+        searchArxiv(sq, 5),
+        searchCrossRef(sq, 5),
+        searchEuropePMC(sq, 5),
+        searchDOAJ(sq, 4),
+      ]);
+      const all = [...s, ...o, ...a, ...cr, ...ep, ...dj];
+      const seen = new Set();
+      const deduped = all.filter(p => {
+        const k = (p.title || "").toLowerCase().slice(0, 40);
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      });
+      setResults(deduped);
+      setLoading(false);
+      if (deduped.length > 0) {
+        try {
+          const summaries = deduped.slice(0, 5).map((p, i) => `[${i+1}] "${p.title}" (${p.year}) — ${p.abstract?.slice(0, 150) || ""}`).join("\n");
+          const note = await callClaude(
+            `You are an academic assistant. Given papers about "${sq}", respond ONLY with JSON: {"synthesis":"2 sentence summary","followUp":["query1","query2","query3"]}. No markdown.`,
+            summaries
+          );
+          try { setAiNote(JSON.parse(note.replace(/```json|```/g, "").trim())); } catch { setAiNote(null); }
+        } catch { setAiNote(null); }
+      }
+    } catch (err) {
+      setLoading(false);
+      setSearchError("搜索时出现错误，请稍后重试。");
     }
   };
 
@@ -946,7 +936,7 @@ function SearchPanel() {
         <input
           value={query} onChange={e => setQuery(e.target.value)}
           onKeyDown={e => e.key === "Enter" && doSearch()}
-          placeholder="Search 200M+ academic papers across 7 databases..."
+          placeholder="Search 200M+ academic papers across 6 databases..."
           style={{
             flex: 1, background: "transparent", border: "none",
             padding: "14px 18px", color: T.text, fontSize: 15, fontFamily: "inherit",
@@ -969,10 +959,16 @@ function SearchPanel() {
         ))}
       </div>
 
+      {searchError && (
+        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "12px 16px", marginBottom: 16, color: "#dc2626", fontSize: 13 }}>
+          ⚠️ {searchError}
+        </div>
+      )}
+
       {loading && (
         <div style={{ textAlign: "center", padding: "50px 0" }}>
           <div style={{ width: 28, height: 28, border: `2px solid ${T.accent}44`, borderTopColor: T.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
-          <div style={{ color: T.textSecondary, fontSize: 13, fontFamily: "monospace" }}>Searching 7 databases: Semantic Scholar · OpenAlex · arXiv · CrossRef · CORE · Europe PMC · DOAJ...</div>
+          <div style={{ color: T.textSecondary, fontSize: 13, fontFamily: "monospace" }}>Searching 6 databases: Semantic Scholar · OpenAlex · arXiv · CrossRef · Europe PMC · DOAJ...</div>
         </div>
       )}
 
@@ -996,7 +992,7 @@ function SearchPanel() {
 
       {results.length > 0 && !loading && (
         <div style={{ color: T.textMuted, fontSize: 12, fontFamily: "monospace", marginBottom: 14 }}>
-          {results.length} papers from 7 databases · click to expand abstracts
+          {results.length} papers from 6 databases · click to expand abstracts
         </div>
       )}
       {results.map((p, i) => <PaperCard key={p.id || i} paper={p} index={i} />)}
@@ -1004,14 +1000,13 @@ function SearchPanel() {
       {!loading && results.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 0", color: T.textMuted }}>
           <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.3 }}>◈</div>
-          <div style={{ fontSize: 14, color: T.textSecondary }}>Search across 7 academic databases</div>
+          <div style={{ fontSize: 14, color: T.textSecondary }}>Search across 6 academic databases</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 14 }}>
             {[
               { name: "Semantic Scholar", color: "#2563eb" },
               { name: "OpenAlex", color: "#3b82f6" },
               { name: "arXiv", color: "#ef4444" },
               { name: "CrossRef", color: "#059669" },
-              { name: "CORE", color: "#7c3aed" },
               { name: "Europe PMC", color: "#0ea5e9" },
               { name: "DOAJ", color: "#f59e0b" },
             ].map(db => (
@@ -1102,7 +1097,7 @@ export default function App() {
             {tab === "write" ? (
               <>AI 智能写作平台<br /><span style={{ fontSize: "0.55em", color: T.textSecondary, fontWeight: 400 }}>论文仿写 · 降低AI率 · 开题报告 · PPT演讲稿 · 万字报告</span></>
             ) : (
-              <>Search 200M+ Papers<br /><span style={{ fontSize: "0.55em", color: T.textSecondary, fontWeight: 400 }}>7 Databases · Harvard · MIT · Stanford · Oxford</span></>
+              <>Search 200M+ Papers<br /><span style={{ fontSize: "0.55em", color: T.textSecondary, fontWeight: 400 }}>6 Databases · Harvard · MIT · Stanford · Oxford</span></>
             )}
           </h1>
         </div>
