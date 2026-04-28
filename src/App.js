@@ -332,12 +332,21 @@ const TABS = [
 ];
 
 // ─── API HELPERS ──────────────────────────────────────────────
+const ANTHROPIC_KEY = process.env.REACT_APP_ANTHROPIC_API_KEY || "";
+const ANTHROPIC_HEADERS = {
+  "Content-Type": "application/json",
+  "x-api-key": ANTHROPIC_KEY,
+  "anthropic-version": "2023-06-01",
+  "anthropic-dangerous-direct-browser-calls": "true",
+};
+
 async function streamClaude(systemPrompt, userMessage = "Please generate the content now.", maxTokens = 2000, onChunk) {
+  if (!ANTHROPIC_KEY) throw new Error("未配置 API Key（REACT_APP_ANTHROPIC_API_KEY），请联系管理员。");
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ANTHROPIC_HEADERS,
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-5",
       max_tokens: maxTokens,
       stream: true,
       system: systemPrompt,
@@ -346,7 +355,7 @@ async function streamClaude(systemPrompt, userMessage = "Please generate the con
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(err);
+    throw new Error(`API 错误 ${res.status}：${err}`);
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -375,18 +384,19 @@ async function streamClaude(systemPrompt, userMessage = "Please generate the con
 }
 
 async function callClaude(systemPrompt, userMessage = "Please generate the content now.", maxTokens = 2000) {
+  if (!ANTHROPIC_KEY) return "";
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ANTHROPIC_HEADERS,
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-5",
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     }),
   });
   const data = await res.json();
-  return data.content?.[0]?.text || "Error generating content.";
+  return data.content?.[0]?.text || "";
 }
 
 // ─── SEARCH API HELPERS ─────────────────────────────────────
