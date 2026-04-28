@@ -614,6 +614,7 @@ function WritingPanel({ tool, onBack }) {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [progress, setProgress] = useState("");
+  const [genError, setGenError] = useState("");
   const outputRef = useRef(null);
 
   const handleGenerate = useCallback(async () => {
@@ -622,22 +623,27 @@ function WritingPanel({ tool, onBack }) {
     setLoading(true);
     setOutput("");
     setProgress("");
+    setGenError("");
 
-    if (tool.longForm) {
-      await generateWorkReport(
-        { ...fields, wordCount: fields.wordCount || tool.fields.find(f => f.key === "wordCount")?.options?.[0] || "一万字 (10,000)" },
-        setProgress,
-        (partial) => { setOutput(partial); setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 50); }
-      );
-    } else {
-      const prompt = tool.systemPrompt(fields);
-      await streamClaude(prompt, "Please generate the content now.", tool.maxTokens || 2000, (partial) => {
-        setOutput(partial);
-      });
+    try {
+      if (tool.longForm) {
+        await generateWorkReport(
+          { ...fields, wordCount: fields.wordCount || tool.fields.find(f => f.key === "wordCount")?.options?.[0] || "一万字 (10,000)" },
+          setProgress,
+          (partial) => { setOutput(partial); setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 50); }
+        );
+      } else {
+        const prompt = tool.systemPrompt(fields);
+        await streamClaude(prompt, "Please generate the content now.", tool.maxTokens || 2000, (partial) => {
+          setOutput(partial);
+        });
+      }
+      setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    } catch (err) {
+      setGenError(`生成失败：${err?.message || "未知错误，请检查网络或 API 配置后重试。"}`);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
-    setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   }, [tool, fields]);
 
   const handleCopy = () => {
@@ -739,6 +745,15 @@ function WritingPanel({ tool, onBack }) {
       }}>
         {loading ? (progress || "✦ AI 生成中...") : `✦ 生成 ${tool.label}`}
       </button>
+
+      {genError && (
+        <div style={{
+          marginTop: 16, background: "#fef2f2", border: "1px solid #fecaca",
+          borderRadius: 12, padding: "12px 16px", color: "#dc2626", fontSize: 13, lineHeight: 1.6,
+        }}>
+          ⚠️ {genError}
+        </div>
+      )}
 
       {/* Output */}
       {(loading || output) && (
