@@ -561,8 +561,9 @@ ${part.title}
 - 大量使用具体数据、百分比、案例支撑论述
 - 分层分点，用"（一）（二）"或"1. 2."标注
 - 内容充实，不得泛泛而谈，字数必须达到约${part.words}字`;
+    const accumulated = fullContent; // capture for closure
     const content = await streamClaude(sectionPrompt, "请生成此章节的完整内容，字数必须达到要求，内容充实详尽。", 4096, (partial) => {
-      onPartial(fullContent + partial);
+      onPartial(accumulated + partial);
     });
     fullContent += content + "\n\n";
     onPartial(fullContent);
