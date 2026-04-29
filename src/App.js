@@ -8,6 +8,7 @@ const WRITING_TOOLS = [
     label: "论文大纲",
     labelEn: "Outline",
     desc: "生成结构化章节大纲",
+    maxTokens: 1200,
     color: "#2563eb",
     fields: [
       { key: "topic", label: "论文题目 / Topic", placeholder: "e.g. AI对就业环境的影响 / The Impact of AI on Employment", type: "text" },
@@ -34,6 +35,7 @@ Format with Roman numerals for sections, letters for subsections. Include brief 
     label: "研究提案",
     labelEn: "Research Proposal",
     desc: "完整研究计划书",
+    maxTokens: 2500,
     color: "#3b82f6",
     fields: [
       { key: "topic", label: "研究题目 / Research Title", placeholder: "e.g. 机器学习在药物发现中的应用", type: "text" },
@@ -72,6 +74,7 @@ Use formal academic English. Be specific, not generic.`;
     label: "摘要生成",
     labelEn: "Abstract",
     desc: "专业学术摘要",
+    maxTokens: 700,
     color: "#ef4444",
     fields: [
       { key: "title", label: "论文标题 / Title", placeholder: "你的论文标题", type: "text" },
@@ -101,6 +104,7 @@ Use precise journal-quality language. No first person. No vague claims. Be speci
     label: "文献综述",
     labelEn: "Literature Review",
     desc: "系统性文献综述",
+    maxTokens: 2000,
     color: "#7c3aed",
     fields: [
       { key: "topic", label: "综述主题 / Review Topic", placeholder: "e.g. 深度学习在自然语言处理中的应用", type: "text" },
@@ -135,6 +139,7 @@ Cite real papers in APA format. Be analytical, not descriptive.`;
     label: "引言撰写",
     labelEn: "Introduction",
     desc: "学术论文引言",
+    maxTokens: 1000,
     color: "#f59e0b",
     fields: [
       { key: "topic", label: "论文题目 / Topic", placeholder: "你的论文题目或研究方向", type: "text" },
@@ -162,6 +167,7 @@ Use formal academic English. Cite 3-5 plausible real references.`;
     label: "论点强化",
     labelEn: "Thesis Statement",
     desc: "优化核心论点",
+    maxTokens: 800,
     color: "#0ea5e9",
     fields: [
       { key: "topic", label: "研究课题 / Research Topic", placeholder: "你的研究主题或研究问题", type: "text" },
@@ -422,21 +428,21 @@ const PROVIDERS = [
 //   Bilingual / mixed               → DeepSeek > 豆包
 //   Long-form reports               → DeepSeek (most stable for long context)
 //   Fallback                        → first provider with a key configured
-const CHINESE_TOOLS = ["report-proposal", "work-report", "paraphrase", "ai-reduce", "speech-ppt"];
-
+// Speed-optimised routing:
+//   DeepSeek is the fastest all-rounder and lowest-latency globally → use it as default
+//   Doubao only for long Chinese reports (better quality for formal Chinese prose)
+//   Gemini Flash is fastest for pure English tasks
 function pickProvider(toolId, lang) {
   const avail = (id) => PROVIDERS.find(p => p.id === id && p.key && (p.id !== "doubao" || p.model));
   const first = () => PROVIDERS.find(p => p.key && (p.id !== "doubao" || p.model));
 
-  const isChinese = !lang || lang === "中文" || lang.includes("中");
   const isEnglish = lang === "English";
-  const isLongForm = toolId === "work-report";
+  // Long-form Chinese reports: Doubao gives better formal Chinese, DeepSeek fallback
+  const isHeavyChinese = toolId === "work-report" || toolId === "report-proposal";
 
-  if (isLongForm)  return avail("deepseek") || avail("doubao") || first();
-  if (CHINESE_TOOLS.includes(toolId) || isChinese)
-                   return avail("doubao") || avail("deepseek") || first();
-  if (isEnglish)   return avail("grok") || avail("gemini") || avail("deepseek") || first();
-  /* bilingual */  return avail("deepseek") || avail("doubao") || first();
+  if (isHeavyChinese) return avail("doubao") || avail("deepseek") || first();
+  if (isEnglish)      return avail("gemini") || avail("deepseek") || avail("grok") || first();
+  /* default / CN */  return avail("deepseek") || avail("doubao") || first();
 }
 
 // Fetch with 45-second timeout — prevents infinite "stuck" loading
@@ -463,6 +469,7 @@ async function streamOpenAI(provider, systemPrompt, userMessage, maxTokens, onCh
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${provider.key}` },
     body: JSON.stringify({
       model: provider.model, max_tokens: maxTokens, stream: true,
+      temperature: 0.7, // lower = faster + more focused output
       messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }],
     }),
   });
