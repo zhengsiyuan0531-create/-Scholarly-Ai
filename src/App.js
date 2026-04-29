@@ -386,80 +386,163 @@ const TABS = [
   { id: "search", label: "文献搜索", icon: "◎" },
 ];
 
-// ─── API HELPERS ──────────────────────────────────────────────
-// DeepSeek uses OpenAI-compatible API — cheap, supports Chinese, no CORS issues
-const DS_KEY = process.env.REACT_APP_DEEPSEEK_API_KEY || "";
-const DS_BASE = "https://api.deepseek.com/chat/completions";
-const DS_MODEL = "deepseek-chat"; // deepseek-chat = DeepSeek V3
+// ─── AI PROVIDERS ─────────────────────────────────────────────
+const PROVIDERS = [
+  {
+    id: "deepseek", name: "DeepSeek V3", nameShort: "DeepSeek",
+    color: "#2563eb", icon: "◈",
+    key: process.env.REACT_APP_DEEPSEEK_API_KEY || "",
+    url: "https://api.deepseek.com/chat/completions",
+    model: "deepseek-chat",
+    type: "openai",
+  },
+  {
+    id: "doubao", name: "豆包 Doubao", nameShort: "豆包",
+    color: "#ea580c", icon: "◉",
+    key: process.env.REACT_APP_DOUBAO_API_KEY || "",
+    url: "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+    model: process.env.REACT_APP_DOUBAO_MODEL || "ep-20250428-xxx",
+    type: "openai",
+  },
+  {
+    id: "gemini", name: "Gemini 2.0 Flash", nameShort: "Gemini",
+    color: "#059669", icon: "◎",
+    key: process.env.REACT_APP_GEMINI_API_KEY || "",
+    url: "", model: "gemini-2.0-flash",
+    type: "gemini",
+  },
+];
 
-function dsHeaders() {
-  return {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${DS_KEY}`,
-  };
-}
-
-async function streamClaude(systemPrompt, userMessage = "Please generate the content now.", maxTokens = 2000, onChunk) {
-  if (!DS_KEY) throw new Error("未配置 DeepSeek API Key（REACT_APP_DEEPSEEK_API_KEY），请在 Vercel 环境变量中添加。");
-  const res = await fetch(DS_BASE, {
+// OpenAI-compatible SSE (DeepSeek, Doubao, etc.)
+async function streamOpenAI(provider, systemPrompt, userMessage, maxTokens, onChunk) {
+  if (!provider.key) throw new Error(`未配置 ${provider.name} API Key，请在 Vercel 环境变量中添加对应的 Key。`);
+  const res = await fetch(provider.url, {
     method: "POST",
-    headers: dsHeaders(),
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${provider.key}` },
     body: JSON.stringify({
-      model: DS_MODEL,
-      max_tokens: maxTokens,
-      stream: true,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
+      model: provider.model, max_tokens: maxTokens, stream: true,
+      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }],
     }),
   });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`DeepSeek API 错误 ${res.status}：${err}`);
-  }
+  if (!res.ok) { const e = await res.text(); throw new Error(`${provider.name} 错误 ${res.status}: ${e}`); }
   const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let full = "";
-  let buffer = "";
+  const dec = new TextDecoder();
+  let full = "", buf = "";
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split("\n"); buf = lines.pop() || "";
     for (const line of lines) {
       if (!line.startsWith("data: ")) continue;
       const raw = line.slice(6).trim();
       if (raw === "[DONE]") break;
-      try {
-        const evt = JSON.parse(raw);
-        const chunk = evt.choices?.[0]?.delta?.content;
-        if (chunk) { full += chunk; onChunk?.(full); }
-      } catch { /* skip malformed */ }
+      try { const d = JSON.parse(raw); const c = d.choices?.[0]?.delta?.content; if (c) { full += c; onChunk?.(full); } } catch {}
     }
   }
   return full || "生成内容为空，请重试。";
 }
 
+// Google Gemini SSE
+async function streamGemini(provider, systemPrompt, userMessage, maxTokens, onChunk) {
+  if (!provider.key) throw new Error("未配置 Gemini API Key（REACT_APP_GEMINI_API_KEY）。");
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:streamGenerateContent?alt=sse&key=${provider.key}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: "user", parts: [{ text: userMessage }] }],
+      generationConfig: { maxOutputTokens: maxTokens },
+    }),
+  });
+  if (!res.ok) { const e = await res.text(); throw new Error(`Gemini 错误 ${res.status}: ${e}`); }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let full = "", buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split("\n"); buf = lines.pop() || "";
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const raw = line.slice(6).trim();
+      try { const d = JSON.parse(raw); const c = d.candidates?.[0]?.content?.parts?.[0]?.text; if (c) { full += c; onChunk?.(full); } } catch {}
+    }
+  }
+  return full || "生成内容为空，请重试。";
+}
+
+// Unified streaming entry point
+async function streamGenerate(systemPrompt, userMessage = "请生成内容。", maxTokens = 2000, onChunk, providerId = "deepseek") {
+  const p = PROVIDERS.find(x => x.id === providerId) || PROVIDERS[0];
+  if (p.type === "gemini") return streamGemini(p, systemPrompt, userMessage, maxTokens, onChunk);
+  return streamOpenAI(p, systemPrompt, userMessage, maxTokens, onChunk);
+}
+
+// Non-streaming (for AI synthesis in search)
 async function callClaude(systemPrompt, userMessage = "Please generate the content now.", maxTokens = 2000) {
+  const DS_KEY = process.env.REACT_APP_DEEPSEEK_API_KEY || "";
   if (!DS_KEY) return "";
   try {
-    const res = await fetch(DS_BASE, {
+    const res = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
-      headers: dsHeaders(),
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${DS_KEY}` },
       body: JSON.stringify({
-        model: DS_MODEL,
-        max_tokens: maxTokens,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
+        model: "deepseek-chat", max_tokens: maxTokens,
+        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }],
       }),
     });
     const data = await res.json();
     return data.choices?.[0]?.message?.content || "";
   } catch { return ""; }
+}
+
+// ─── DOWNLOAD HELPERS ─────────────────────────────────────────
+function dlText(content, title) {
+  const a = Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" })),
+    download: `${title}.txt`,
+  });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+function dlWord(content, title) {
+  const safe = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>${title}</title>
+<style>body{font-family:"SimSun",serif;font-size:12pt;line-height:2;margin:2cm}pre{white-space:pre-wrap;font-family:inherit;margin:0}</style></head>
+<body><pre>${safe}</pre></body></html>`;
+  const a = Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(new Blob(["\ufeff", html], { type: "application/msword" })),
+    download: `${title}.doc`,
+  });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+function dlPDF(content, title) {
+  const safe = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const w = window.open("", "_blank");
+  if (!w) { alert("请允许浏览器弹出窗口以导出 PDF"); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>body{font-family:"SimSun",serif;font-size:12pt;line-height:2;margin:0;color:#000}
+.wrap{margin:2cm}pre{white-space:pre-wrap;font-family:inherit;margin:0}
+.btn{display:flex;gap:10px;padding:12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;margin-bottom:0}
+button{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:13px}
+.p{background:#2563eb;color:#fff}.c{background:#e2e8f0;color:#333}
+@media print{.btn{display:none}}</style></head>
+<body>
+<div class="btn">
+  <button class="p" onclick="window.print()">🖨 打印 / 另存为 PDF</button>
+  <button class="c" onclick="window.close()">✕ 关闭</button>
+</div>
+<div class="wrap"><pre>${safe}</pre></div>
+</body></html>`);
+  w.document.close();
+  setTimeout(() => { try { w.print(); } catch {} }, 600);
 }
 
 // ─── SEARCH API HELPERS ─────────────────────────────────────
@@ -584,7 +667,7 @@ async function searchDOAJ(query, limit = 5) {
 }
 
 // ─── LONG-FORM REPORT GENERATOR ──────────────────────────────
-async function generateWorkReport(fields, onProgress, onPartial) {
+async function generateWorkReport(fields, onProgress, onPartial, providerId = "deepseek") {
   const totalWords = parseInt(fields.wordCount.replace(/[^0-9]/g, "")) || 10000;
   const base = `报告标题：${fields.title}\n报告类型：${fields.type}\n单位/部门：${fields.dept || "相关单位"}\n报告时间段：${fields.period || "本报告期"}${fields.highlights ? `\n重点内容：${fields.highlights}` : ""}`;
   const parts = [
@@ -634,10 +717,10 @@ ${part.title}
 - 大量使用具体数据、百分比、案例支撑论述
 - 分层分点，用"（一）（二）"或"1. 2."标注
 - 内容充实，不得泛泛而谈，字数必须达到约${part.words}字`;
-    const accumulated = fullContent; // capture for closure
-    const content = await streamClaude(sectionPrompt, "请生成此章节的完整内容，字数必须达到要求，内容充实详尽。", 4096, (partial) => {
+    const accumulated = fullContent; // capture for closure — fixes no-loop-func
+    const content = await streamGenerate(sectionPrompt, "请生成此章节的完整内容，字数必须达到要求，内容充实详尽。", 4096, (partial) => {
       onPartial(accumulated + partial);
-    });
+    }, providerId);
     fullContent += content + "\n\n";
     onPartial(fullContent);
   }
@@ -688,18 +771,49 @@ function WritingPanel({ tool, onBack }) {
     tool.fields.forEach(f => { if (f.type === "select") defaults[f.key] = f.options[0]; });
     return defaults;
   });
-  const [output, setOutput] = useState("");
+  // Multi-version output: [{lang, content, model}]
+  const [versions, setVersions] = useState([]);
+  const [activeV, setActiveV] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [progress, setProgress] = useState("");
   const [genError, setGenError] = useState("");
+  const [provider, setProvider] = useState("deepseek");
+  const [editMode, setEditMode] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showDl, setShowDl] = useState(false);
   const outputRef = useRef(null);
+  const genIdxRef = useRef(-1);
+
+  const activeVersion = versions[activeV] || null;
+  const activeContent = editMode
+    ? (activeVersion?.edited ?? activeVersion?.content ?? "")
+    : (activeVersion?.content ?? "");
 
   const handleGenerate = useCallback(async () => {
     const missing = tool.fields.filter(f => !f.optional && f.type !== "select" && !fields[f.key]);
     if (missing.length > 0) return;
+
+    // Determine which language version this will be
+    const currentLang = fields.lang || fields.language ||
+      tool.fields.find(f => f.key === "lang" || f.key === "language")?.options?.[0] || "—";
+
+    // Find or create version slot
+    const existingIdx = versions.findIndex(v => v.lang === currentLang);
+    const newIdx = existingIdx >= 0 ? existingIdx : versions.length;
+    genIdxRef.current = newIdx;
+
+    setVersions(prev => {
+      const copy = [...prev];
+      if (existingIdx >= 0) {
+        copy[existingIdx] = { ...copy[existingIdx], content: "", model: provider, edited: undefined };
+      } else {
+        copy.push({ lang: currentLang, content: "", model: provider });
+      }
+      return copy;
+    });
+    setActiveV(newIdx);
+    setEditMode(false);
     setLoading(true);
-    setOutput("");
     setProgress("");
     setGenError("");
 
@@ -708,13 +822,19 @@ function WritingPanel({ tool, onBack }) {
         await generateWorkReport(
           { ...fields, wordCount: fields.wordCount || tool.fields.find(f => f.key === "wordCount")?.options?.[0] || "一万字 (10,000)" },
           setProgress,
-          (partial) => { setOutput(partial); setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 50); }
+          (partial) => {
+            const idx = genIdxRef.current;
+            setVersions(prev => { const c = [...prev]; if (c[idx]) c[idx] = { ...c[idx], content: partial }; return c; });
+            setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+          },
+          provider
         );
       } else {
         const prompt = tool.systemPrompt(fields);
-        await streamClaude(prompt, "Please generate the content now.", tool.maxTokens || 2000, (partial) => {
-          setOutput(partial);
-        });
+        await streamGenerate(prompt, "请生成内容。", tool.maxTokens || 2000, (partial) => {
+          const idx = genIdxRef.current;
+          setVersions(prev => { const c = [...prev]; if (c[idx]) c[idx] = { ...c[idx], content: partial }; return c; });
+        }, provider);
       }
       setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (err) {
@@ -722,35 +842,48 @@ function WritingPanel({ tool, onBack }) {
     } finally {
       setLoading(false);
     }
-  }, [tool, fields]);
+  }, [tool, fields, versions, provider]);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard.writeText(activeContent);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
 
-  const charCount = output ? output.replace(/\s/g, "").length : 0;
+  const charCount = activeContent ? activeContent.replace(/\s/g, "").length : 0;
+  const docTitle = (fields.topic || fields.title || fields.text?.slice(0, 20) || tool.label).slice(0, 40);
 
   return (
     <div>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
         <button onClick={onBack} style={{
           background: T.card, border: `1px solid ${T.cardBorder}`,
           color: T.textSecondary, borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontSize: 13,
         }}>← 返回</button>
         <span style={{ fontSize: 20, color: tool.color }}>{tool.icon}</span>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ color: T.text, fontWeight: 600, fontSize: 17 }}>{tool.label}</div>
           <div style={{ color: T.textMuted, fontSize: 12, fontFamily: "monospace" }}>{tool.labelEn}</div>
+        </div>
+        {/* AI Model Selector */}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {PROVIDERS.map(p => (
+            <button key={p.id} onClick={() => setProvider(p.id)} style={{
+              background: provider === p.id ? p.color : T.card,
+              color: provider === p.id ? "#fff" : T.textSecondary,
+              border: `1px solid ${provider === p.id ? p.color : T.cardBorder}`,
+              borderRadius: 20, padding: "4px 12px", cursor: "pointer", fontSize: 11,
+              fontFamily: "monospace", fontWeight: provider === p.id ? 700 : 400,
+              transition: "all 0.15s",
+            }}>{p.icon} {p.nameShort}</button>
+          ))}
         </div>
       </div>
 
       {/* Work report notice */}
       {tool.longForm && (
         <div style={{
-          background: "#fef2f2", border: `1px solid ${tool.color}33`,
+          background: "#fef9f0", border: `1px solid ${tool.color}33`,
           borderRadius: 12, padding: "12px 16px", marginBottom: 20,
           display: "flex", alignItems: "center", gap: 10,
         }}>
@@ -770,148 +903,220 @@ function WritingPanel({ tool, onBack }) {
               {f.label}{f.optional && <span style={{ color: T.textMuted, fontSize: 11, marginLeft: 6 }}>(可选)</span>}
             </label>
             {f.type === "textarea" ? (
-              <textarea
-                value={fields[f.key] || ""}
-                onChange={e => setFields(p => ({ ...p, [f.key]: e.target.value }))}
-                placeholder={f.placeholder}
-                rows={4}
-                style={{
-                  width: "100%", background: T.inputBg,
-                  border: `1px solid ${T.inputBorder}`, borderRadius: 10,
-                  padding: "12px 14px", color: T.text, fontSize: 14,
+              <textarea value={fields[f.key] || ""} onChange={e => setFields(p => ({ ...p, [f.key]: e.target.value }))}
+                placeholder={f.placeholder} rows={4} style={{
+                  width: "100%", background: T.inputBg, border: `1px solid ${T.inputBorder}`,
+                  borderRadius: 10, padding: "12px 14px", color: T.text, fontSize: 14,
                   resize: "vertical", fontFamily: "inherit", boxSizing: "border-box",
-                }}
-              />
+                }} />
             ) : f.type === "select" ? (
-              <select
-                value={fields[f.key] || f.options[0]}
-                onChange={e => setFields(p => ({ ...p, [f.key]: e.target.value }))}
+              <select value={fields[f.key] || f.options[0]} onChange={e => setFields(p => ({ ...p, [f.key]: e.target.value }))}
                 style={{
-                  width: "100%", background: T.card,
-                  border: `1px solid ${T.inputBorder}`, borderRadius: 10,
-                  padding: "12px 14px", color: T.text, fontSize: 14,
+                  width: "100%", background: T.card, border: `1px solid ${T.inputBorder}`,
+                  borderRadius: 10, padding: "12px 14px", color: T.text, fontSize: 14,
                   fontFamily: "inherit", cursor: "pointer",
-                }}
-              >
+                }}>
                 {f.options.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             ) : (
-              <input
-                type="text"
-                value={fields[f.key] || ""}
-                onChange={e => setFields(p => ({ ...p, [f.key]: e.target.value }))}
-                placeholder={f.placeholder}
-                style={{
-                  width: "100%", background: T.inputBg,
-                  border: `1px solid ${T.inputBorder}`, borderRadius: 10,
-                  padding: "12px 14px", color: T.text, fontSize: 14,
+              <input type="text" value={fields[f.key] || ""} onChange={e => setFields(p => ({ ...p, [f.key]: e.target.value }))}
+                placeholder={f.placeholder} style={{
+                  width: "100%", background: T.inputBg, border: `1px solid ${T.inputBorder}`,
+                  borderRadius: 10, padding: "12px 14px", color: T.text, fontSize: 14,
                   fontFamily: "inherit", boxSizing: "border-box",
-                }}
-              />
+                }} />
             )}
           </div>
         ))}
       </div>
 
       <button onClick={handleGenerate} disabled={loading} style={{
-        background: loading ? T.cardBorder : tool.color,
-        color: loading ? T.textMuted : "#fff",
-        border: "none", borderRadius: 12, padding: "14px 32px",
-        fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
-        width: "100%", fontFamily: "monospace", letterSpacing: "0.05em", transition: "all 0.2s",
+        background: loading ? T.cardBorder : tool.color, color: loading ? T.textMuted : "#fff",
+        border: "none", borderRadius: 12, padding: "14px 32px", fontSize: 15, fontWeight: 700,
+        cursor: loading ? "not-allowed" : "pointer", width: "100%",
+        fontFamily: "monospace", letterSpacing: "0.05em", transition: "all 0.2s",
         boxShadow: loading ? "none" : `0 4px 14px ${tool.color}33`,
       }}>
-        {loading ? (progress || "✦ AI 生成中...") : `✦ 生成 ${tool.label}`}
+        {loading ? (progress || "✦ AI 生成中...") : (
+          versions.length > 0
+            ? `✦ 生成 ${fields.lang || "当前语言"} 版本`
+            : `✦ 生成 ${tool.label}`
+        )}
       </button>
 
       {genError && (
         <div style={{
           marginTop: 16, background: "#fef2f2", border: "1px solid #fecaca",
           borderRadius: 12, padding: "12px 16px", color: "#dc2626", fontSize: 13, lineHeight: 1.6,
-        }}>
-          ⚠️ {genError}
-        </div>
+        }}>⚠️ {genError}</div>
       )}
 
-      {/* Output */}
-      {(loading || output) && (
+      {/* Output Area */}
+      {(loading || versions.length > 0) && (
         <div ref={outputRef} style={{
-          marginTop: 28, background: T.outputBg,
-          border: `1px solid ${tool.color}33`,
-          borderRadius: 16, padding: "24px",
-          animation: "fadeIn 0.4s ease",
+          marginTop: 28, background: T.outputBg, border: `1px solid ${tool.color}33`,
+          borderRadius: 16, overflow: "hidden", animation: "fadeIn 0.4s ease",
         }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ color: tool.color, fontSize: 12, fontFamily: "monospace", letterSpacing: "0.1em", fontWeight: 700 }}>
-                ✦ AI OUTPUT
-              </span>
-              {output && (
-                <span style={{ color: T.textMuted, fontSize: 11, fontFamily: "monospace" }}>
-                  {charCount.toLocaleString()} 字
-                </span>
+          {/* Version tabs */}
+          {versions.length > 0 && (
+            <div style={{
+              display: "flex", gap: 0, borderBottom: `1px solid ${tool.color}22`,
+              background: "#fff", flexWrap: "wrap",
+            }}>
+              {versions.map((v, i) => (
+                <button key={i} onClick={() => { setActiveV(i); setEditMode(false); }} style={{
+                  background: activeV === i ? T.outputBg : "transparent",
+                  color: activeV === i ? tool.color : T.textSecondary,
+                  border: "none", borderBottom: activeV === i ? `2px solid ${tool.color}` : "2px solid transparent",
+                  padding: "10px 18px", cursor: "pointer", fontSize: 13, fontWeight: activeV === i ? 700 : 400,
+                  fontFamily: "monospace", transition: "all 0.15s",
+                }}>
+                  {v.lang} <span style={{ fontSize: 10, opacity: 0.6 }}>·{v.model}</span>
+                </button>
+              ))}
+              {versions.length > 0 && (
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", padding: "0 12px", gap: 6, fontSize: 11, color: T.textMuted }}>
+                  切换语言后点击"生成"可添加版本
+                </div>
               )}
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {tool.gensparkLink && output && !loading && (
-                <button
-                  onClick={() => window.open("https://www.genspark.ai/", "_blank")}
-                  style={{
-                    background: "#dbeafe", color: "#2563eb",
-                    border: "1px solid #93c5fd", borderRadius: 8,
-                    padding: "5px 14px", cursor: "pointer", fontSize: 12, fontWeight: 600,
-                  }}
-                >
-                  ▦ 在 Genspark 创建 PPT →
-                </button>
+          )}
+
+          {/* Toolbar */}
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "12px 20px", flexWrap: "wrap", gap: 8,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ color: tool.color, fontSize: 11, fontFamily: "monospace", letterSpacing: "0.1em", fontWeight: 700 }}>✦ AI OUTPUT</span>
+              {activeContent && <span style={{ color: T.textMuted, fontSize: 11, fontFamily: "monospace" }}>{charCount.toLocaleString()} 字</span>}
+              {activeVersion?.model && <span style={{ background: PROVIDERS.find(p=>p.id===activeVersion.model)?.color + "22", color: PROVIDERS.find(p=>p.id===activeVersion.model)?.color, fontSize: 10, padding: "2px 8px", borderRadius: 10, fontFamily: "monospace" }}>{PROVIDERS.find(p=>p.id===activeVersion.model)?.nameShort}</span>}
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {/* Genspark PPT */}
+              {tool.gensparkLink && activeContent && !loading && (
+                <button onClick={() => window.open("https://www.genspark.ai/", "_blank")} style={{
+                  background: "#dbeafe", color: "#2563eb", border: "1px solid #93c5fd",
+                  borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600,
+                }}>▦ Genspark PPT →</button>
               )}
-              {output && (
+              {/* Edit toggle */}
+              {activeContent && !loading && (
+                <button onClick={() => {
+                  if (!editMode) {
+                    setVersions(prev => {
+                      const c = [...prev];
+                      if (c[activeV]) c[activeV] = { ...c[activeV], edited: c[activeV].edited ?? c[activeV].content };
+                      return c;
+                    });
+                  }
+                  setEditMode(e => !e);
+                }} style={{
+                  background: editMode ? "#fef9c3" : T.card,
+                  color: editMode ? "#92400e" : T.textSecondary,
+                  border: `1px solid ${editMode ? "#fde68a" : T.cardBorder}`,
+                  borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12,
+                }}>{editMode ? "✓ 完成编辑" : "✎ 编辑"}</button>
+              )}
+              {/* Copy */}
+              {activeContent && (
                 <button onClick={handleCopy} style={{
                   background: copied ? "#d1fae5" : T.card,
                   color: copied ? "#059669" : T.textSecondary,
                   border: `1px solid ${copied ? "#6ee7b7" : T.cardBorder}`,
-                  borderRadius: 8, padding: "5px 14px", cursor: "pointer", fontSize: 12,
-                }}>
-                  {copied ? "✓ 已复制" : "复制"}
-                </button>
+                  borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12,
+                }}>{copied ? "✓ 已复制" : "复制"}</button>
+              )}
+              {/* Download */}
+              {activeContent && !loading && (
+                <div style={{ position: "relative" }}>
+                  <button onClick={() => setShowDl(d => !d)} style={{
+                    background: T.card, color: T.textSecondary,
+                    border: `1px solid ${T.cardBorder}`,
+                    borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12,
+                  }}>↓ 下载 ▾</button>
+                  {showDl && (
+                    <div style={{
+                      position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50,
+                      background: T.card, border: `1px solid ${T.cardBorder}`,
+                      borderRadius: 10, padding: 6, boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                      minWidth: 160,
+                    }}>
+                      {[
+                        { label: "📄 下载 TXT", fn: () => { dlText(activeContent, docTitle); setShowDl(false); } },
+                        { label: "📝 下载 Word (.doc)", fn: () => { dlWord(activeContent, docTitle); setShowDl(false); } },
+                        { label: "🖨 导出 PDF（打印）", fn: () => { dlPDF(activeContent, docTitle); setShowDl(false); } },
+                        ...(tool.gensparkLink ? [{ label: "▦ PPT → Genspark", fn: () => { window.open("https://www.genspark.ai/", "_blank"); setShowDl(false); } }] : []),
+                      ].map(item => (
+                        <button key={item.label} onClick={item.fn} style={{
+                          display: "block", width: "100%", textAlign: "left",
+                          background: "transparent", border: "none",
+                          padding: "8px 12px", cursor: "pointer", fontSize: 13,
+                          color: T.text, borderRadius: 6,
+                        }}
+                          onMouseEnter={e => e.currentTarget.style.background = T.cardHover}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                        >{item.label}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
 
           {/* Genspark guide */}
-          {tool.gensparkLink && output && !loading && (
+          {tool.gensparkLink && activeContent && !loading && (
             <div style={{
-              background: "#dbeafe", border: "1px solid #93c5fd",
-              borderRadius: 10, padding: "12px 16px", marginBottom: 16,
-              fontSize: 12, color: "#1d4ed8", lineHeight: 1.7,
+              background: "#dbeafe", borderTop: "1px solid #93c5fd",
+              padding: "10px 20px", fontSize: 12, color: "#1d4ed8", lineHeight: 1.7,
             }}>
-              <strong>使用 Genspark 生成 PPT：</strong>点击上方按钮进入 Genspark → 选择「AI Slides」→ 粘贴上方 PPT 大纲内容 → 一键生成精美 PPT
+              <strong>Genspark PPT 使用方法：</strong>点击上方按钮 → 选择「AI Slides」→ 粘贴 PPT 大纲内容 → 一键生成精美 PPT
             </div>
           )}
 
           {/* Long report progress */}
           {tool.longForm && loading && progress && (
             <div style={{
-              background: "#fce7f3", borderRadius: 8, padding: "10px 14px", marginBottom: 14,
-              display: "flex", alignItems: "center", gap: 10,
+              background: "#fef9f0", borderTop: `1px solid ${tool.color}22`,
+              padding: "10px 20px", display: "flex", alignItems: "center", gap: 10,
             }}>
               <div style={{ width: 14, height: 14, border: `2px solid ${tool.color}44`, borderTopColor: tool.color, borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
               <span style={{ color: tool.color, fontSize: 12, fontFamily: "monospace" }}>{progress}</span>
             </div>
           )}
 
-          {!output && loading && !tool.longForm ? (
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <div style={{ width: 20, height: 20, border: `2px solid ${tool.color}44`, borderTopColor: tool.color, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-              <span style={{ color: T.textSecondary, fontSize: 13 }}>Claude AI 正在生成...</span>
-            </div>
-          ) : (
-            <pre style={{
-              color: T.text, fontSize: 14, lineHeight: 1.8,
-              whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0,
-              fontFamily: "'Georgia', serif",
-            }}>{output}{loading ? "▌" : ""}</pre>
-          )}
+          {/* Content area */}
+          <div style={{ padding: "0 24px 24px" }}>
+            {!activeContent && loading && !tool.longForm ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "20px 0" }}>
+                <div style={{ width: 20, height: 20, border: `2px solid ${tool.color}44`, borderTopColor: tool.color, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                <span style={{ color: T.textSecondary, fontSize: 13 }}>AI 正在生成...</span>
+              </div>
+            ) : editMode ? (
+              <textarea
+                value={activeVersion?.edited ?? activeVersion?.content ?? ""}
+                onChange={e => setVersions(prev => {
+                  const c = [...prev];
+                  if (c[activeV]) c[activeV] = { ...c[activeV], edited: e.target.value };
+                  return c;
+                })}
+                style={{
+                  width: "100%", minHeight: 400, background: "#fffef0",
+                  border: `1px solid #fde68a`, borderRadius: 10,
+                  padding: "16px", color: T.text, fontSize: 14, lineHeight: 1.8,
+                  resize: "vertical", fontFamily: "'Georgia', serif", boxSizing: "border-box",
+                  marginTop: 16,
+                }}
+              />
+            ) : (
+              <pre style={{
+                color: T.text, fontSize: 14, lineHeight: 1.8,
+                whiteSpace: "pre-wrap", wordBreak: "break-word", margin: "16px 0 0",
+                fontFamily: "'Georgia', serif",
+              }}>{activeContent}{loading ? "▌" : ""}</pre>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1217,15 +1422,23 @@ export default function App() {
               borderRadius: 16, padding: "20px 24px",
               boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
             }}>
-              <div style={{ color: T.textMuted, fontSize: 11, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: 12, fontWeight: 700 }}>✦ POWERED BY</div>
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ color: T.textMuted, fontSize: 11, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: 12, fontWeight: 700 }}>✦ AI 引擎 · POWERED BY</div>
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
+                {PROVIDERS.map(p => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: p.color }} />
+                    <span style={{ color: T.textSecondary, fontSize: 12, fontWeight: 600 }}>{p.name}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                 {[
-                  { name: "Claude Sonnet 4", desc: "AI 写作引擎", color: "#f97316" },
                   { name: "论文仿写 & 降AI率", desc: "11种写作模式", color: "#8b5cf6" },
                   { name: "Genspark PPT", desc: "演讲稿联动", color: "#2563eb" },
                   { name: "万字报告", desc: "分段智能生成", color: "#db2777" },
+                  { name: "多语言版本管理", desc: "中文/英文/双语", color: "#059669" },
                 ].map(p => (
-                  <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.color }} />
                     <span style={{ color: T.textSecondary, fontSize: 12 }}>{p.name}</span>
                     <span style={{ color: T.textMuted, fontSize: 11 }}>· {p.desc}</span>
