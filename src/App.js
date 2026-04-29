@@ -386,40 +386,58 @@ const TABS = [
   { id: "search", label: "文献搜索", icon: "◎" },
 ];
 
-// ─── AI PROVIDERS ─────────────────────────────────────────────
+// ─── AI PROVIDERS (internal only — not exposed in UI) ─────────
 const PROVIDERS = [
   {
-    id: "deepseek", name: "DeepSeek V3", nameShort: "DeepSeek",
-    color: "#2563eb", icon: "◈",
+    id: "deepseek", name: "DeepSeek V3",
     key: process.env.REACT_APP_DEEPSEEK_API_KEY || "",
     url: "https://api.deepseek.com/chat/completions",
-    model: "deepseek-chat",
-    type: "openai",
+    model: "deepseek-chat", type: "openai",
   },
   {
-    id: "doubao", name: "豆包 Doubao", nameShort: "豆包",
-    color: "#ea580c", icon: "◉",
+    id: "doubao", name: "豆包 Doubao",
     key: process.env.REACT_APP_DOUBAO_API_KEY || "",
     url: "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-    model: process.env.REACT_APP_DOUBAO_MODEL || "ep-20250428-xxx",
+    model: process.env.REACT_APP_DOUBAO_MODEL || "",
     type: "openai",
   },
   {
-    id: "gemini", name: "Gemini 2.0 Flash", nameShort: "Gemini",
-    color: "#059669", icon: "◎",
+    id: "gemini", name: "Gemini 2.0 Flash",
     key: process.env.REACT_APP_GEMINI_API_KEY || "",
-    url: "", model: "gemini-2.0-flash",
-    type: "gemini",
+    url: "", model: "gemini-2.0-flash", type: "gemini",
   },
   {
-    id: "grok", name: "Grok 3 (xAI)", nameShort: "Grok",
-    color: "#6d28d9", icon: "✕",
+    id: "grok", name: "Grok 3",
     key: process.env.REACT_APP_GROK_API_KEY || "",
     url: "https://api.x.ai/v1/chat/completions",
-    model: "grok-3",
-    type: "openai",
+    model: "grok-3", type: "openai",
   },
 ];
+
+// ─── SMART MODEL ROUTER ───────────────────────────────────────
+// Automatically picks the best available model for each task.
+// Priority rules:
+//   Chinese tools / Chinese output  → 豆包 > DeepSeek
+//   English academic writing        → Grok > Gemini > DeepSeek
+//   Bilingual / mixed               → DeepSeek > 豆包
+//   Long-form reports               → DeepSeek (most stable for long context)
+//   Fallback                        → first provider with a key configured
+const CHINESE_TOOLS = ["report-proposal", "work-report", "paraphrase", "ai-reduce", "speech-ppt"];
+
+function pickProvider(toolId, lang) {
+  const avail = (id) => PROVIDERS.find(p => p.id === id && p.key && (p.id !== "doubao" || p.model));
+  const first = () => PROVIDERS.find(p => p.key && (p.id !== "doubao" || p.model));
+
+  const isChinese = !lang || lang === "中文" || lang.includes("中");
+  const isEnglish = lang === "English";
+  const isLongForm = toolId === "work-report";
+
+  if (isLongForm)  return avail("deepseek") || avail("doubao") || first();
+  if (CHINESE_TOOLS.includes(toolId) || isChinese)
+                   return avail("doubao") || avail("deepseek") || first();
+  if (isEnglish)   return avail("grok") || avail("gemini") || avail("deepseek") || first();
+  /* bilingual */  return avail("deepseek") || avail("doubao") || first();
+}
 
 // OpenAI-compatible SSE (DeepSeek, Doubao, etc.)
 async function streamOpenAI(provider, systemPrompt, userMessage, maxTokens, onChunk) {
@@ -785,7 +803,6 @@ function WritingPanel({ tool, onBack }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState("");
   const [genError, setGenError] = useState("");
-  const [provider, setProvider] = useState("deepseek");
   const [editMode, setEditMode] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showDl, setShowDl] = useState(false);
@@ -805,6 +822,14 @@ function WritingPanel({ tool, onBack }) {
     const currentLang = fields.lang || fields.language ||
       tool.fields.find(f => f.key === "lang" || f.key === "language")?.options?.[0] || "—";
 
+    // Auto-select best model for this task + language (hidden from user)
+    const chosenProvider = pickProvider(tool.id, currentLang);
+    if (!chosenProvider) {
+      setGenError("未配置任何 AI API Key，请在 Vercel 环境变量中添加至少一个模型的 Key。");
+      setLoading(false);
+      return;
+    }
+
     // Find or create version slot
     const existingIdx = versions.findIndex(v => v.lang === currentLang);
     const newIdx = existingIdx >= 0 ? existingIdx : versions.length;
@@ -813,9 +838,9 @@ function WritingPanel({ tool, onBack }) {
     setVersions(prev => {
       const copy = [...prev];
       if (existingIdx >= 0) {
-        copy[existingIdx] = { ...copy[existingIdx], content: "", model: provider, edited: undefined };
+        copy[existingIdx] = { ...copy[existingIdx], content: "", model: chosenProvider.id, edited: undefined };
       } else {
-        copy.push({ lang: currentLang, content: "", model: provider });
+        copy.push({ lang: currentLang, content: "", model: chosenProvider.id });
       }
       return copy;
     });
@@ -835,14 +860,14 @@ function WritingPanel({ tool, onBack }) {
             setVersions(prev => { const c = [...prev]; if (c[idx]) c[idx] = { ...c[idx], content: partial }; return c; });
             setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
           },
-          provider
+          chosenProvider.id
         );
       } else {
         const prompt = tool.systemPrompt(fields);
         await streamGenerate(prompt, "请生成内容。", tool.maxTokens || 2000, (partial) => {
           const idx = genIdxRef.current;
           setVersions(prev => { const c = [...prev]; if (c[idx]) c[idx] = { ...c[idx], content: partial }; return c; });
-        }, provider);
+        }, chosenProvider.id);
       }
       setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (err) {
@@ -850,7 +875,7 @@ function WritingPanel({ tool, onBack }) {
     } finally {
       setLoading(false);
     }
-  }, [tool, fields, versions, provider]);
+  }, [tool, fields, versions]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(activeContent);
@@ -872,19 +897,6 @@ function WritingPanel({ tool, onBack }) {
         <div style={{ flex: 1 }}>
           <div style={{ color: T.text, fontWeight: 600, fontSize: 17 }}>{tool.label}</div>
           <div style={{ color: T.textMuted, fontSize: 12, fontFamily: "monospace" }}>{tool.labelEn}</div>
-        </div>
-        {/* AI Model Selector */}
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {PROVIDERS.map(p => (
-            <button key={p.id} onClick={() => setProvider(p.id)} style={{
-              background: provider === p.id ? p.color : T.card,
-              color: provider === p.id ? "#fff" : T.textSecondary,
-              border: `1px solid ${provider === p.id ? p.color : T.cardBorder}`,
-              borderRadius: 20, padding: "4px 12px", cursor: "pointer", fontSize: 11,
-              fontFamily: "monospace", fontWeight: provider === p.id ? 700 : 400,
-              transition: "all 0.15s",
-            }}>{p.icon} {p.nameShort}</button>
-          ))}
         </div>
       </div>
 
@@ -979,7 +991,7 @@ function WritingPanel({ tool, onBack }) {
                   padding: "10px 18px", cursor: "pointer", fontSize: 13, fontWeight: activeV === i ? 700 : 400,
                   fontFamily: "monospace", transition: "all 0.15s",
                 }}>
-                  {v.lang} <span style={{ fontSize: 10, opacity: 0.6 }}>·{v.model}</span>
+                  {v.lang}
                 </button>
               ))}
               {versions.length > 0 && (
@@ -998,7 +1010,6 @@ function WritingPanel({ tool, onBack }) {
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ color: tool.color, fontSize: 11, fontFamily: "monospace", letterSpacing: "0.1em", fontWeight: 700 }}>✦ AI OUTPUT</span>
               {activeContent && <span style={{ color: T.textMuted, fontSize: 11, fontFamily: "monospace" }}>{charCount.toLocaleString()} 字</span>}
-              {activeVersion?.model && <span style={{ background: PROVIDERS.find(p=>p.id===activeVersion.model)?.color + "22", color: PROVIDERS.find(p=>p.id===activeVersion.model)?.color, fontSize: 10, padding: "2px 8px", borderRadius: 10, fontFamily: "monospace" }}>{PROVIDERS.find(p=>p.id===activeVersion.model)?.nameShort}</span>}
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {/* Genspark PPT */}
