@@ -411,6 +411,14 @@ const PROVIDERS = [
     url: "", model: "gemini-2.0-flash",
     type: "gemini",
   },
+  {
+    id: "grok", name: "Grok 3 (xAI)", nameShort: "Grok",
+    color: "#6d28d9", icon: "✕",
+    key: process.env.REACT_APP_GROK_API_KEY || "",
+    url: "https://api.x.ai/v1/chat/completions",
+    model: "grok-3",
+    type: "openai",
+  },
 ];
 
 // OpenAI-compatible SSE (DeepSeek, Doubao, etc.)
