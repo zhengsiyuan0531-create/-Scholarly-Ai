@@ -439,10 +439,26 @@ function pickProvider(toolId, lang) {
   /* bilingual */  return avail("deepseek") || avail("doubao") || first();
 }
 
-// OpenAI-compatible SSE (DeepSeek, Doubao, etc.)
+// Fetch with 45-second timeout — prevents infinite "stuck" loading
+async function fetchWithTimeout(url, options, timeoutMs = 45000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === "AbortError") throw new Error("请求超时（45秒），请检查网络或稍后重试。");
+    throw e;
+  }
+}
+
+// OpenAI-compatible SSE (DeepSeek, Doubao, Grok, etc.)
 async function streamOpenAI(provider, systemPrompt, userMessage, maxTokens, onChunk) {
-  if (!provider.key) throw new Error(`未配置 ${provider.name} API Key，请在 Vercel 环境变量中添加对应的 Key。`);
-  const res = await fetch(provider.url, {
+  if (!provider.key) throw new Error(`未配置 ${provider.name} API Key，请在 Vercel 环境变量中添加。`);
+  if (provider.id === "doubao" && !provider.model) throw new Error("未配置豆包接入点 ID（REACT_APP_DOUBAO_MODEL）。");
+  const res = await fetchWithTimeout(provider.url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${provider.key}` },
     body: JSON.stringify({
@@ -473,7 +489,7 @@ async function streamOpenAI(provider, systemPrompt, userMessage, maxTokens, onCh
 async function streamGemini(provider, systemPrompt, userMessage, maxTokens, onChunk) {
   if (!provider.key) throw new Error("未配置 Gemini API Key（REACT_APP_GEMINI_API_KEY）。");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:streamGenerateContent?alt=sse&key=${provider.key}`;
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -500,11 +516,26 @@ async function streamGemini(provider, systemPrompt, userMessage, maxTokens, onCh
   return full || "生成内容为空，请重试。";
 }
 
-// Unified streaming entry point
+// Unified streaming — tries chosen provider, falls back to any available provider
 async function streamGenerate(systemPrompt, userMessage = "请生成内容。", maxTokens = 2000, onChunk, providerId = "deepseek") {
   const p = PROVIDERS.find(x => x.id === providerId) || PROVIDERS[0];
-  if (p.type === "gemini") return streamGemini(p, systemPrompt, userMessage, maxTokens, onChunk);
-  return streamOpenAI(p, systemPrompt, userMessage, maxTokens, onChunk);
+  try {
+    if (p.type === "gemini") return await streamGemini(p, systemPrompt, userMessage, maxTokens, onChunk);
+    return await streamOpenAI(p, systemPrompt, userMessage, maxTokens, onChunk);
+  } catch (primaryErr) {
+    // Auto-fallback: try next available provider before giving up
+    const fallback = PROVIDERS.find(x =>
+      x.id !== p.id && x.key &&
+      (x.id !== "doubao" || x.model) &&
+      x.type !== "gemini" // skip gemini in fallback (may need VPN)
+    );
+    if (fallback) {
+      onChunk?.(""); // clear partial output before retry
+      if (fallback.type === "gemini") return await streamGemini(fallback, systemPrompt, userMessage, maxTokens, onChunk);
+      return await streamOpenAI(fallback, systemPrompt, userMessage, maxTokens, onChunk);
+    }
+    throw primaryErr; // no fallback available, re-throw original error
+  }
 }
 
 // Non-streaming (for AI synthesis in search)
