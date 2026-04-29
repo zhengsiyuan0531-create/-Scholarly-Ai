@@ -462,8 +462,8 @@ async function fetchWithTimeout(url, options, timeoutMs = 45000) {
 
 // OpenAI-compatible SSE (DeepSeek, Doubao, Grok, etc.)
 async function streamOpenAI(provider, systemPrompt, userMessage, maxTokens, onChunk) {
-  if (!provider.key) throw new Error(`未配置 ${provider.name} API Key，请在 Vercel 环境变量中添加。`);
-  if (provider.id === "doubao" && !provider.model) throw new Error("未配置豆包接入点 ID（REACT_APP_DOUBAO_MODEL）。");
+  if (!provider.key) throw new Error("AI 服务暂时不可用，请稍后重试。");
+  if (provider.id === "doubao" && !provider.model) throw new Error("AI 服务配置不完整，请联系管理员。");
   const res = await fetchWithTimeout(provider.url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${provider.key}` },
@@ -473,7 +473,7 @@ async function streamOpenAI(provider, systemPrompt, userMessage, maxTokens, onCh
       messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }],
     }),
   });
-  if (!res.ok) { const e = await res.text(); throw new Error(`${provider.name} 错误 ${res.status}: ${e}`); }
+  if (!res.ok) { const e = await res.text(); throw new Error(`生成失败（${res.status}）：${e.slice(0, 120)}`); }
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let full = "", buf = "";
@@ -494,7 +494,7 @@ async function streamOpenAI(provider, systemPrompt, userMessage, maxTokens, onCh
 
 // Google Gemini SSE
 async function streamGemini(provider, systemPrompt, userMessage, maxTokens, onChunk) {
-  if (!provider.key) throw new Error("未配置 Gemini API Key（REACT_APP_GEMINI_API_KEY）。");
+  if (!provider.key) throw new Error("AI 服务暂时不可用，请稍后重试。");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:streamGenerateContent?alt=sse&key=${provider.key}`;
   const res = await fetchWithTimeout(url, {
     method: "POST",
@@ -505,7 +505,7 @@ async function streamGemini(provider, systemPrompt, userMessage, maxTokens, onCh
       generationConfig: { maxOutputTokens: maxTokens },
     }),
   });
-  if (!res.ok) { const e = await res.text(); throw new Error(`Gemini 错误 ${res.status}: ${e}`); }
+  if (!res.ok) { const e = await res.text(); throw new Error(`生成失败（${res.status}）：${e.slice(0, 120)}`); }
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let full = "", buf = "";
@@ -863,7 +863,7 @@ function WritingPanel({ tool, onBack }) {
     // Auto-select best model for this task + language (hidden from user)
     const chosenProvider = pickProvider(tool.id, currentLang);
     if (!chosenProvider) {
-      setGenError("未配置任何 AI API Key，请在 Vercel 环境变量中添加至少一个模型的 Key。");
+      setGenError("AI 服务暂时不可用，请稍后重试或联系管理员。");
       setLoading(false);
       return;
     }
@@ -1479,17 +1479,10 @@ export default function App() {
               borderRadius: 16, padding: "20px 24px",
               boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
             }}>
-              <div style={{ color: T.textMuted, fontSize: 11, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: 12, fontWeight: 700 }}>✦ AI 引擎 · POWERED BY</div>
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
-                {PROVIDERS.map(p => (
-                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: p.color }} />
-                    <span style={{ color: T.textSecondary, fontSize: 12, fontWeight: 600 }}>{p.name}</span>
-                  </div>
-                ))}
-              </div>
+              <div style={{ color: T.textMuted, fontSize: 11, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: 12, fontWeight: 700 }}>✦ 平台功能</div>
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                 {[
+                  { name: "智能 AI 写作引擎", desc: "多模型自动优选", color: "#2563eb" },
                   { name: "论文仿写 & 降AI率", desc: "11种写作模式", color: "#8b5cf6" },
                   { name: "Genspark PPT", desc: "演讲稿联动", color: "#2563eb" },
                   { name: "万字报告", desc: "分段智能生成", color: "#db2777" },
