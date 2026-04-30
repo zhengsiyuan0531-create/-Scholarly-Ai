@@ -48,11 +48,11 @@ An AI-powered academic writing platform supporting Chinese & English, with intel
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19 (Create React App), inline CSS |
+| Frontend | Single-page application, inline CSS |
 | Streaming | `ReadableStream` + Server-Sent Events for real-time rendering |
 | AI Routing | Multi-model intelligent routing (internal, not user-facing) |
 | Literature APIs | Semantic Scholar, OpenAlex, arXiv, CrossRef, Europe PMC, DOAJ |
-| Hosting | Vercel — auto-deploys on every push to `main` |
+| Hosting | Cloud hosting — auto-deploys on every push to `main` |
 | Domain | `zscholara-ai.org` |
 
 ---
@@ -76,7 +76,7 @@ npm install
 
 # 3. Configure environment variables
 cp .env.local.example .env.local
-# Open .env.local and add your API keys (see table below)
+# Open .env.local and add your API keys
 
 # 4. Start the dev server
 npm start
@@ -121,12 +121,12 @@ npm run build
 git push origin main
 ```
 
-### Vercel Setup
+### Deployment Setup
 
-1. Import the repository at [vercel.com/new](https://vercel.com/new)
-2. Add all `REACT_APP_*` keys under **Settings → Environment Variables**
-3. Add your custom domain under **Settings → Domains** and set it as primary
-4. Disable **Deployment Protection** (Settings → Deployment Protection → Off) so public visitors can access the site without a Vercel account
+1. Connect the repository to your hosting platform
+2. Add all `REACT_APP_*` keys under **Environment Variables**
+3. Add your custom domain and set it as primary
+4. Ensure public access is enabled so visitors can reach the site without authentication
 
 ---
 
