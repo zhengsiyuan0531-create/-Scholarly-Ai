@@ -1,70 +1,177 @@
-# Getting Started with Create React App
+# ScholaraAI — 智能学术写作平台
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+<div align="center">
 
-## Available Scripts
+**🌐 Live at [zscholara-ai.org](https://zscholara-ai.org)**
 
-In the project directory, you can run:
+An AI-powered academic writing platform supporting Chinese & English, with intelligent multi-model routing, real-time streaming generation, and simultaneous multi-database literature search.
 
-### `npm start`
+*智能学术写作平台 · 多模型自动优选 · 实时流式生成 · 六大文献数据库*
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+</div>
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## ✨ Features
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### AI Writing Tools — 11 Modules
 
-### `npm run build`
+| Module | Description | Output Language |
+|--------|-------------|-----------------|
+| 论文大纲 | Structured paper outline with chapter breakdown | 中文 / English / 双语 |
+| 研究提案 | Full research proposal with timeline & budget | 中文 / English / 双语 |
+| 摘要生成 | Journal-quality abstract (150–300 words) | 中文 / English / 双语 |
+| 文献综述 | Systematic literature review with gap analysis | 中文 / English / 双语 |
+| 引言撰写 | Academic introduction with hook and paper roadmap | 中文 / English / 双语 |
+| 论点强化 | Thesis statement refinement (3 progressive versions) | 中文 / English / 双语 |
+| 论文仿写 | Paraphrase & rewrite preserving core arguments | 中文 |
+| 降低AI重合率 | Humanise AI-generated text to reduce AI detection | 中文 / English |
+| 开题报告 | Full Chinese-standard research opening report | 中文 |
+| PPT + 演讲稿 | Slide outline + 2,000-word speech script → Genspark | 中文 |
+| 工作报告 | Long-form work report, 10,000–30,000 words | 中文 |
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Literature Search
+- **6 databases queried simultaneously:** Semantic Scholar · OpenAlex · arXiv · CrossRef · Europe PMC · DOAJ
+- AI-synthesised research summary for each query
+- Cross-source deduplication with direct PDF links where available
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Platform Highlights
+- **Real-time streaming** — content appears token-by-token; no waiting for a blank screen to fill
+- **Multi-version management** — generate Chinese, English, and bilingual editions of the same document without overwriting previous outputs; edit any version inline
+- **Export** — download results as PDF, Word (.docx), or plain text
+- **Smart model routing** — the backend automatically selects the fastest, most capable model for each task type and language; model details are never exposed to end users
+- **45-second timeout + auto-fallback** — if the primary model is slow or unavailable, the system silently retries with the next configured model
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+---
 
-### `npm run eject`
+## 🏗️ Tech Stack
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19 (Create React App), inline CSS |
+| Streaming | `ReadableStream` + Server-Sent Events for real-time rendering |
+| AI Routing | Multi-model intelligent routing (internal, not user-facing) |
+| Literature APIs | Semantic Scholar, OpenAlex, arXiv, CrossRef, Europe PMC, DOAJ |
+| Hosting | Vercel — auto-deploys on every push to `main` |
+| Domain | `zscholara-ai.org` |
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## 🚀 Local Development
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Prerequisites
 
-## Learn More
+- Node.js 18+
+- npm 9+
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Setup
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```bash
+# 1. Clone the repository
+git clone https://github.com/zhengsiyuan0531-create/-Scholarly-Ai.git
+cd -Scholarly-Ai
 
-### Code Splitting
+# 2. Install dependencies
+npm install
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+# 3. Configure environment variables
+cp .env.local.example .env.local
+# Open .env.local and add your API keys (see table below)
 
-### Analyzing the Bundle Size
+# 4. Start the dev server
+npm start
+# → http://localhost:3000
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### Environment Variables
 
-### Making a Progressive Web App
+```env
+# .env.local  (never commit this file)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+# Required — at least one of the following must be set
+REACT_APP_DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-### Advanced Configuration
+# Optional — additional providers improve quality and add redundancy
+REACT_APP_DOUBAO_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+REACT_APP_DOUBAO_MODEL=ep-20250429-xxxxxxxx        # Doubao endpoint ID
+REACT_APP_GEMINI_API_KEY=AIzaSy-xxxxxxxxxxxxxxxxxxxxxxxx
+REACT_APP_GROK_API_KEY=xai-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+> API keys are embedded at build time via `REACT_APP_*` prefixes and consumed client-side. Never commit `.env.local`.
 
-### Deployment
+### Where to Obtain API Keys
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+| Provider | Console | Notes |
+|----------|---------|-------|
+| DeepSeek | [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys) | Pay-as-you-go, very low cost |
+| Doubao / 火山引擎 | [console.volcengine.com/ark](https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey) | Free credits for new users; requires a separate endpoint ID |
+| Google Gemini | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | Free tier available (VPN required outside mainland China) |
+| Grok / xAI | [console.x.ai](https://console.x.ai) | $25/month free credits (VPN required outside mainland China) |
 
-### `npm run build` fails to minify
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 📦 Build & Deploy
+
+```bash
+# Production build
+npm run build
+
+# Push to trigger automatic Vercel deploy
+git push origin main
+```
+
+### Vercel Setup
+
+1. Import the repository at [vercel.com/new](https://vercel.com/new)
+2. Add all `REACT_APP_*` keys under **Settings → Environment Variables**
+3. Add your custom domain under **Settings → Domains** and set it as primary
+4. Disable **Deployment Protection** (Settings → Deployment Protection → Off) so public visitors can access the site without a Vercel account
+
+---
+
+## 🤖 AI Model Routing (Internal)
+
+The platform silently selects the best available model based on task type and output language. End users see no model names or branding.
+
+| Task | Primary | Fallback |
+|------|---------|---------|
+| General Chinese writing | DeepSeek | Doubao |
+| Long-form Chinese reports (工作报告 / 开题报告) | Doubao | DeepSeek |
+| English academic writing | Gemini Flash | DeepSeek |
+| Bilingual output | DeepSeek | Doubao |
+
+If the primary model fails or exceeds the 45-second timeout, the system automatically retries with the next available model.
+
+---
+
+## 📁 Project Structure
+
+```
+.
+├── public/
+│   └── index.html
+├── src/
+│   └── App.js          # Entire application — ~1,400 lines
+├── .env.local.example  # Environment variable template
+├── package.json
+└── README.md
+```
+
+**`src/App.js` section map:**
+
+| Lines | Contents |
+|-------|----------|
+| 1 – 390 | Writing tool definitions (fields, prompts, token limits) |
+| 390 – 450 | AI provider config & `pickProvider()` routing logic |
+| 450 – 560 | Streaming API functions (`streamOpenAI`, `streamGemini`, `streamGenerate`) |
+| 560 – 660 | Long-form report generator (`generateWorkReport`) |
+| 660 – 900 | `WritingPanel` — form, generation, multi-version management, export |
+| 900 – 1,100 | `LiteraturePanel` — search, deduplication, AI synthesis |
+| 1,100 – end | `App` root, navigation, homepage |
+
+---
+
+## 📄 License
+
+MIT © 2025 ScholaraAI
