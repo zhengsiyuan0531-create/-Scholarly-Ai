@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────
 const WRITING_TOOLS = [
@@ -256,7 +257,7 @@ ${f.original}
 原文：
 ${f.text}
 
-请直接输出处理后的内容，不要解释你做了什么改变。`,
+请直接输出处理后的内��，不要解释你做了什么改变。`,
   },
   {
     id: "report-proposal",
@@ -1512,6 +1513,7 @@ export default function App() {
           </div>
         )}
       </div>
+      <Analytics />
     </div>
   );
 }
